@@ -1,9 +1,10 @@
-const CACHE_NAME = "tiktok-clone-v2";
+const CACHE_NAME = "tiktok-clone-v1";
 const urlsToCache = [
     "/daohuyenmy/",
     "/daohuyenmy/index.html",
     "/daohuyenmy/videos.json",
-    "/daohuyenmy/music/tran-ngoc-anh.mp4"
+    "/daohuyenmy/music/tran-ngoc-anh.mp4",
+    "https://tongtrankien1605.github.io/daohuyenmy/favicon.ico"
 ];
 
 self.addEventListener("install", (event) => {
