@@ -50,25 +50,20 @@
                 border-radius: 5px;
                 max-width: 90%;
             }
-            .info h3 {
-                margin: 0 0 5px 0;
-                font-size: 16px;
-            }
             .info p {
                 margin: 0;
                 font-size: 14px;
             }
             .controls {
                 position: absolute;
-                right: 450px; /* Sát bên phải video */
+                right: 10px;
                 top: 50%;
                 transform: translateY(-50%);
                 display: flex;
                 flex-direction: column;
-                gap: 15px; /* Khoảng cách giữa các nút */
+                gap: 15px;
                 opacity: 1;
                 transition: opacity 0.3s ease;
-                padding-right: 5px; /* Giảm padding để gần video hơn */
             }
             .controls.hidden {
                 opacity: 0;
@@ -96,7 +91,8 @@
                 background: #ff0000;
                 width: 0;
             }
-            .error-message {
+            .error-message,
+            .loading {
                 color: white;
                 text-align: center;
                 font-size: 18px;
@@ -111,34 +107,60 @@
                     padding: 12px;
                     font-size: 22px;
                 }
-                .info h3 {
-                    font-size: 14px;
-                }
                 .info p {
                     font-size: 12px;
+                }
+
+                .loading {
+                    color: white;
+                    text-align: center;
+                    font-size: 18px;
+                    padding: 20px;
+                    display: inline-block;
+                    width: 40px;
+                    height: 40px;
+                    border: 4px solid #fff;
+                    border-top-color: #ff0000;
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                }
+                @keyframes spin {
+                    to {
+                        transform: rotate(360deg);
+                    }
                 }
             }
         </style>
     </head>
     <body>
-        <div class="video-container" id="videoContainer"></div>
+        <div class="video-container" id="videoContainer">
+            <div class="loading">Đang tải...</div>
+        </div>
 
         <script>
-            // Trạng thái toàn cục
-            let videoUrls = []; // Danh sách tất cả video từ videos.json
-            let currentIndex = 0; // Index video hiện tại
-            let isReloading = false; // Ngăn lướt nhanh gây lỗi
-            let isFirstLoad = true; // Yêu cầu click video đầu tiên khi load
+            let videoUrls = [];
+            let currentIndex = 0;
+            let isReloading = false;
+            let isFirstLoad = true;
+            let observer = null;
 
-            // Tải danh sách video từ localStorage hoặc fetch
+            function isValidVideoUrl(url) {
+                return /\.(mp4|webm|ogg)$/i.test(url);
+            }
+
             async function loadVideos(isReload = false) {
+                if (isReloading) return; // Ngăn cuộn nhanh
+                isReloading = true;
+                const container = document.getElementById("videoContainer");
+                container.innerHTML = '<div class="loading">Đang tải...</div>';
+
                 const cachedVideos = localStorage.getItem("videoUrls");
                 if (cachedVideos && !isReload) {
                     videoUrls = JSON.parse(cachedVideos);
                 } else {
                     try {
-                        const response = await fetch("videos.json?v=1");
-                        videoUrls = await response.json();
+                        const response = await fetch("videos.json?v=" + Date.now());
+                        videoUrls = (await response.json()).filter((v) => v.url && isValidVideoUrl(v.url));
                         localStorage.setItem("videoUrls", JSON.stringify(videoUrls));
                     } catch (e) {
                         console.error("Error loading videos:", e);
@@ -147,7 +169,8 @@
                 }
 
                 if (!videoUrls.length) {
-                    document.getElementById("videoContainer").innerHTML = '<p class="error-message">Không có video</p>';
+                    container.innerHTML = '<p class="error-message">Không có video</p>';
+                    isReloading = false;
                     return;
                 }
 
@@ -156,60 +179,55 @@
                 }
 
                 const orderedVideos = getOrderedVideos();
-
-                const container = document.getElementById("videoContainer");
                 container.innerHTML = "";
                 container.style.overflowY = "hidden";
 
-                // Render 3 slide video
                 orderedVideos.forEach((video, index) => {
                     const slide = document.createElement("div");
                     slide.className = "video-slide";
                     slide.innerHTML = `
-                    <div class="video-wrapper">
-                        <video src="${video.url}" playsinline preload="${index === 1 ? "auto" : "none"}"></video>
-                        <div class="progress-bar"><div class="progress"></div></div>
-                        <div class="info">
-                            <!-- <h3>${video.title || "Untitled"}</h3> -->
-                            <p>${video.description || "No description"}</p>
-                        </div>
-                    </div>
-                    <div class="controls">
-                        <button class="control-btn" onclick="togglePlay(this)">⏯️</button>
-                        <button class="control-btn" onclick="toggleMute(this)">🔊</button>
-                        <button class="control-btn" onclick="scrollToPrev()">⬆️</button>
-                        <button class="control-btn" onclick="scrollToNext()">⬇️</button>
-             
-                    </div>
-                `;
+            <div class="video-wrapper">
+                <video src="${video.url}" playsinline preload="${index === 1 ? "auto" : "none"}"></video>
+                <div class="progress-bar"><div class="progress"></div></div>
+                <div class="info"><p>${video.description || "No description"}</p></div>
+            </div>
+            <div class="controls">
+                <button class="control-btn" onclick="togglePlay(this)">⏯️</button>
+                <button class="control-btn" onclick="toggleMute(this)">🔊</button>
+                <button class="control-btn" onclick="scrollToPrev()">⬆️</button>
+                <button class="control-btn" onclick="scrollToNext()">⬇️</button>
+            </div>
+        `;
                     container.appendChild(slide);
+                    if (!slide.querySelector(".controls")) console.error("Failed to render controls for:", video.url);
                 });
 
-                setupVideos();
-                container.style.overflowY = "scroll";
                 requestAnimationFrame(() => {
-                    container.scrollTop = window.innerHeight;
+                    if (document.querySelectorAll(".video-slide").length === 3) {
+                        // Kiểm tra đủ 3 slide
+                        setupVideos();
+                        container.style.overflowY = "scroll";
+                        container.scrollTop = window.innerHeight;
+                    } else {
+                        console.warn("Slides not fully rendered, retrying...");
+                        setTimeout(() => loadVideos(isReload), 100); // Thử lại nếu chưa đủ
+                    }
+                    isReloading = false;
                 });
             }
 
-            // Lấy danh sách video hiển thị (trước, hiện tại, sau)
             function getOrderedVideos() {
                 const prevIndex = (currentIndex - 1 + videoUrls.length) % videoUrls.length;
                 const nextIndex = (currentIndex + 1) % videoUrls.length;
-                return [
-                    videoUrls[prevIndex], // Video trước
-                    videoUrls[currentIndex], // Video hiện tại
-                    videoUrls[nextIndex], // Video sau
-                ];
+                return [videoUrls[prevIndex], videoUrls[currentIndex], videoUrls[nextIndex]];
             }
 
-            // Cài đặt sự kiện cho video
             function setupVideos() {
+                if (observer) observer.disconnect();
                 const videos = document.querySelectorAll("video");
-                const container = document.getElementById("videoContainer");
                 let hideControlsTimeout;
 
-                const observer = new IntersectionObserver(
+                observer = new IntersectionObserver(
                     (entries) => {
                         entries.forEach((entry) => {
                             const video = entry.target;
@@ -222,16 +240,19 @@
                                     currentIndex = (currentIndex + 1) % videoUrls.length;
                                     loadVideos(true);
                                 } else if (index === 1) {
-                                    // Sửa lỗi: Tự phát khi lướt
                                     if (!isFirstLoad) {
                                         video.play().catch(() => console.warn("Video play failed:", video.src));
                                     }
                                     clearTimeout(hideControlsTimeout);
                                     const controls = video.parentElement.querySelector(".controls");
-                                    controls.classList.remove("hidden");
-                                    hideControlsTimeout = setTimeout(() => {
-                                        controls.classList.add("hidden");
-                                    }, 3000);
+                                    if (controls) {
+                                        controls.classList.remove("hidden");
+                                        hideControlsTimeout = setTimeout(() => {
+                                            controls.classList.add("hidden");
+                                        }, 3000);
+                                    } else {
+                                        console.error("Controls not found for video:", video.src);
+                                    }
                                 }
                             } else {
                                 video.pause();
@@ -239,33 +260,35 @@
                             }
                         });
                     },
-                    { threshold: 0.5 }
+                    { threshold: 0.7, rootMargin: "50px" }
                 );
 
                 videos.forEach((video) => {
                     observer.observe(video);
 
                     video.addEventListener("click", () => {
-                        if (isFirstLoad) {
-                            isFirstLoad = false;
-                        }
+                        if (isFirstLoad) isFirstLoad = false;
                         video.paused ? video.play() : video.pause();
                         const btn = video.parentElement.querySelector(".control-btn");
-                        btn.textContent = video.paused ? "▶️" : "⏸";
+                        if (btn) btn.textContent = video.paused ? "▶️" : "⏸";
                     });
 
                     video.addEventListener("timeupdate", () => {
                         const progress = video.parentElement.querySelector(".progress");
-                        const percent = (video.currentTime / video.duration) * 100;
-                        progress.style.width = `${percent}%`;
+                        if (progress) {
+                            const percent = (video.currentTime / video.duration) * 100;
+                            progress.style.width = `${percent}%`;
+                        }
                     });
 
                     const progressBar = video.parentElement.querySelector(".progress-bar");
-                    progressBar.addEventListener("click", (e) => {
-                        const rect = progressBar.getBoundingClientRect();
-                        const pos = (e.clientX - rect.left) / rect.width;
-                        video.currentTime = pos * video.duration;
-                    });
+                    if (progressBar) {
+                        progressBar.addEventListener("click", (e) => {
+                            const rect = progressBar.getBoundingClientRect();
+                            const pos = (e.clientX - rect.left) / rect.width;
+                            video.currentTime = pos * video.duration;
+                        });
+                    }
 
                     video.addEventListener("ended", () => {
                         video.currentTime = 0;
@@ -277,52 +300,55 @@
                         video.poster = "placeholder.jpg";
                     });
 
-                    video.parentElement.addEventListener("mousemove", () => {
-                        const controls = video.parentElement.querySelector(".controls");
+                    const wrapper = video.parentElement;
+                    wrapper.addEventListener("mousemove", () => {
                         clearTimeout(hideControlsTimeout);
-                        controls.classList.remove("hidden");
-                        hideControlsTimeout = setTimeout(() => {
-                            controls.classList.add("hidden");
-                        }, 3000);
+                        const controls = wrapper.querySelector(".controls");
+                        if (controls) {
+                            controls.classList.remove("hidden");
+                            hideControlsTimeout = setTimeout(() => {
+                                controls.classList.add("hidden");
+                            }, 3000);
+                        }
                     });
-                    
 
-                    video.parentElement.addEventListener("touchstart", () => {
-                        const controls = video.parentElement.querySelector(".controls");
+                    wrapper.addEventListener("touchstart", () => {
                         clearTimeout(hideControlsTimeout);
-                        controls.classList.remove("hidden");
-                        hideControlsTimeout = setTimeout(() => {
-                            controls.classList.add("hidden");
-                        }, 3000);
+                        const controls = wrapper.querySelector(".controls");
+                        if (controls) {
+                            controls.classList.remove("hidden");
+                            hideControlsTimeout = setTimeout(() => {
+                                controls.classList.add("hidden");
+                            }, 3000);
+                        }
                     });
+                });
+
+                document.addEventListener("keydown", (e) => {
+                    if (e.key === "ArrowUp") scrollToPrev();
+                    if (e.key === "ArrowDown") scrollToNext();
                 });
             }
 
-            // Bật/tắt phát video
             function togglePlay(btn) {
                 const video = btn.closest(".video-slide").querySelector("video");
-                if (isFirstLoad) {
-                    isFirstLoad = false;
-                }
+                if (isFirstLoad) isFirstLoad = false;
                 video.paused ? video.play() : video.pause();
                 btn.textContent = video.paused ? "▶️" : "⏸";
             }
 
-            // Bật/tắt âm thanh
             function toggleMute(btn) {
                 const video = btn.closest(".video-slide").querySelector("video");
                 video.muted = !video.muted;
                 btn.textContent = video.muted ? "🔇" : "🔊";
             }
 
-            // Lướt xuống
             function scrollToNext() {
                 const container = document.getElementById("videoContainer");
                 const nextSlide = container.scrollTop + window.innerHeight;
                 container.scrollTo({ top: nextSlide, behavior: "smooth" });
             }
 
-            // Lướt lên
             function scrollToPrev() {
                 const container = document.getElementById("videoContainer");
                 const prevSlide = container.scrollTop - window.innerHeight;
