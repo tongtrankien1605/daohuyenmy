@@ -1,9 +1,9 @@
 const CACHE_NAME = "tiktok-clone-v1";
 const urlsToCache = [
-    "/daohuyenmy/",
-    "/daohuyenmy/index.html",
-    "/daohuyenmy/videos.json",
-    "/daohuyenmy/music/tran-ngoc-anh.mp4",
+    "https://tongtrankien1605.github.io/daohuyenmy/",
+    "https://tongtrankien1605.github.io/daohuyenmy/index.html",
+    "https://tongtrankien1605.github.io/daohuyenmy/videos.json",
+    "https://tongtrankien1605.github.io/daohuyenmy/music/tran-ngoc-anh.mp4",
     "https://tongtrankien1605.github.io/daohuyenmy/favicon.ico"
 ];
 
@@ -39,7 +39,7 @@ self.addEventListener("fetch", (event) => {
                     );
                 }
                 return networkResponse;
-            });
+            }).catch(() => caches.match('/offline.html')); // Thêm fallback
         })
     );
 });
