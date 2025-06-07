@@ -120,9 +120,7 @@
                 animation: spin 1s linear infinite;
             }
             @keyframes spin {
-                to {
-                    transform: rotate(360deg);
-                }
+                to { transform: rotate(360deg); }
             }
         }
     </style>
@@ -160,9 +158,7 @@
             if (!isReload && isCacheValid()) {
                 try {
                     const cachedVideos = localStorage.getItem(CACHE_KEY);
-                    if (cachedVideos) {
-                        videoUrls = JSON.parse(cachedVideos);
-                    }
+                    if (cachedVideos) videoUrls = JSON.parse(cachedVideos);
                 } catch (e) {
                     console.error("Lỗi parse cache:", e);
                     localStorage.removeItem(CACHE_KEY);
@@ -172,9 +168,20 @@
 
             if (!videoUrls.length) {
                 try {
-                    const response = await fetch(`videos.json?v=${Date.now()}`);
+                    const response = await fetch("/daohuyenmy/videos.json?v=" + Date.now());
                     if (!response.ok) throw new Error("Lỗi tải videos.json");
                     videoUrls = (await response.json()).filter((v) => v.url && isValidVideoUrl(v.url));
+                    videoUrls = await Promise.all(
+                        videoUrls.map(async (video) => {
+                            try {
+                                const res = await fetch(video.url, { method: "HEAD" });
+                                return res.ok ? video : null;
+                            } catch {
+                                console.warn(`Video không tồn tại: ${video.url}`);
+                                return null;
+                            }
+                        })
+                    ).then((results) => results.filter((v) => v));
                     localStorage.setItem(CACHE_KEY, JSON.stringify(videoUrls));
                     localStorage.setItem(CACHE_EXPIRY_KEY, Date.now() + CACHE_DURATION);
                 } catch (e) {
@@ -366,12 +373,11 @@
             container.scrollTo({ top: prevSlide, behavior: "smooth" });
         }
 
-        // Khởi tạo Service Worker để cache video
         if ("serviceWorker" in navigator) {
             window.addEventListener("load", () => {
-                navigator.serviceWorker.register("/sw.js").then(
+                navigator.serviceWorker.register("/daohuyenmy/sw.js").then(
                     (registration) => {
-                        console.log("Service Worker đăng ký thành công:", registration);
+                        console.log("Service Worker đăng ký thành công:", registration.scope);
                     },
                     (error) => {
                         console.error("Lỗi đăng ký Service Worker:", error);
