@@ -162,8 +162,8 @@
                         const cachedVideos = localStorage.getItem(CACHE_KEY);
                         if (cachedVideos) {
                             videoUrls = JSON.parse(cachedVideos);
-                            container.innerHTML = ""; // Xóa loading nếu có cache
-                            loadVideosContent();
+                            container.innerHTML = "";
+                            loadVideosContent(isReload); // Truyền isReload
                             return;
                         }
                     } catch (e) {
@@ -201,10 +201,10 @@
                     return;
                 }
 
-                loadVideosContent();
+                loadVideosContent(isReload); // Truyền isReload
             }
 
-            function loadVideosContent() {
+            function loadVideosContent(isReload) {
                 if (!isReload) currentIndex = Math.floor(Math.random() * videoUrls.length);
                 const orderedVideos = getOrderedVideos();
                 const container = document.getElementById("videoContainer");
@@ -261,7 +261,6 @@
                             const index = Array.from(videos).indexOf(video);
                             if (entry.isIntersecting && !isReloading) {
                                 if (index === 1) {
-                                    // Chỉ play video chính giữa
                                     if (!isFirstLoad) video.play().catch(() => console.warn("Lỗi phát video:", video.src));
                                     clearTimeout(hideControlsTimeout);
                                     const controls = video.parentElement.querySelector(".controls");
@@ -374,5 +373,6 @@
 
             loadVideos();
         </script>
+        
     </body>
 </html>
