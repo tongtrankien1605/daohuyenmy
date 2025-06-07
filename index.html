@@ -166,7 +166,7 @@
             if (isReloading) return;
             isReloading = true;
             const container = document.getElementById("videoContainer");
-            container.innerHTML = '<div class="loading">Đang tải...</div>';
+            <!-- container.innerHTML = '<div class="loading">Đang tải...</div>'; -->
 
             let shouldUseCache = false;
             if (!isReload && isCacheValid()) {
