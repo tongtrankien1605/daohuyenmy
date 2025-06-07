@@ -98,18 +98,6 @@
             font-size: 18px;
             padding: 20px;
         }
-        .refresh-btn {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            border: none;
-            padding: 10px;
-            cursor: pointer;
-            border-radius: 5px;
-            font-size: 16px;
-        }
         @media (max-width: 600px) {
             .video-wrapper {
                 max-width: 360px;
@@ -141,7 +129,6 @@
     <div class="video-container" id="videoContainer">
         <div class="loading">Đang tải...</div>
     </div>
-    <button class="refresh-btn" onclick="loadVideos(true)">Làm mới video</button>
 
     <script>
         let videoUrls = [];
@@ -168,21 +155,10 @@
             const container = document.getElementById("videoContainer");
             container.innerHTML = '<div class="loading">Đang tải...</div>';
 
-            let shouldUseCache = false;
             if (!isReload && isCacheValid()) {
                 try {
                     const cachedVideos = localStorage.getItem(CACHE_KEY);
-                    if (cachedVideos) {
-                        const cachedData = JSON.parse(cachedVideos);
-                        const response = await fetch("/daohuyenmy/videos.json?v=" + Date.now());
-                        if (response.ok) {
-                            const newData = await response.json();
-                            if (newData.version === cachedData.version) {
-                                videoUrls = cachedData.videos;
-                                shouldUseCache = true;
-                            }
-                        }
-                    }
+                    if (cachedVideos) videoUrls = JSON.parse(cachedVideos);
                 } catch (e) {
                     console.error("Lỗi parse cache:", e);
                     localStorage.removeItem(CACHE_KEY);
@@ -190,12 +166,11 @@
                 }
             }
 
-            if (!shouldUseCache) {
+            if (!videoUrls.length) {
                 try {
                     const response = await fetch("/daohuyenmy/videos.json?v=" + Date.now());
                     if (!response.ok) throw new Error("Lỗi tải videos.json");
-                    const data = await response.json();
-                    videoUrls = data.videos.filter((v) => v.url && isValidVideoUrl(v.url));
+                    videoUrls = (await response.json()).filter((v) => v.url && isValidVideoUrl(v.url));
                     videoUrls = await Promise.all(
                         videoUrls.map(async (video) => {
                             try {
@@ -207,7 +182,7 @@
                             }
                         })
                     ).then((results) => results.filter((v) => v));
-                    localStorage.setItem(CACHE_KEY, JSON.stringify({ version: data.version, videos: videoUrls }));
+                    localStorage.setItem(CACHE_KEY, JSON.stringify(videoUrls));
                     localStorage.setItem(CACHE_EXPIRY_KEY, Date.now() + CACHE_DURATION);
                 } catch (e) {
                     console.error("Lỗi tải video:", e);
