@@ -1,4 +1,4 @@
-const CACHE_NAME = "tiktok-clone-v2";
+const CACHE_NAME = "tiktok-clone-v1";
 const urlsToCache = [
     "/daohuyenmy/",
     "/daohuyenmy/index.html",

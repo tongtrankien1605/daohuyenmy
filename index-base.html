@@ -151,7 +151,7 @@
         let observer = null;
         const CACHE_KEY = "videoUrls";
         const CACHE_EXPIRY_KEY = "videoUrlsExpiry";
-        const CACHE_DURATION = 1 * 30 * 60 * 1000; // 30 phút
+        const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 giờ
 
         function isValidVideoUrl(url) {
             return /\.(mp4|webm|ogg)$/i.test(url);
@@ -166,17 +166,17 @@
             if (isReloading) return;
             isReloading = true;
             const container = document.getElementById("videoContainer");
-            let shouldUseCache = false;
+            <!-- container.innerHTML = '<div class="loading">Đang tải...</div>'; -->
 
+            let shouldUseCache = false;
             if (!isReload && isCacheValid()) {
                 try {
                     const cachedVideos = localStorage.getItem(CACHE_KEY);
                     if (cachedVideos) {
                         const cachedData = JSON.parse(cachedVideos);
                         const response = await fetch("/daohuyenmy/videos.json?v=" + Date.now());
-                        const clonedResponse = response.clone();
-                        if (clonedResponse.ok) {
-                            const newData = await clonedResponse.json();
+                        if (response.ok) {
+                            const newData = await response.json();
                             if (newData.version === cachedData.version) {
                                 videoUrls = cachedData.videos;
                                 shouldUseCache = true;
@@ -193,16 +193,14 @@
             if (!shouldUseCache) {
                 try {
                     const response = await fetch("/daohuyenmy/videos.json?v=" + Date.now());
-                    const clonedResponse = response.clone();
-                    if (!clonedResponse.ok) throw new Error("Lỗi tải videos.json");
-                    const data = await clonedResponse.json();
+                    if (!response.ok) throw new Error("Lỗi tải videos.json");
+                    const data = await response.json();
                     videoUrls = data.videos.filter((v) => v.url && isValidVideoUrl(v.url));
                     videoUrls = await Promise.all(
                         videoUrls.map(async (video) => {
                             try {
                                 const res = await fetch(video.url, { method: "HEAD" });
-                                const clonedRes = res.clone();
-                                return clonedRes.ok ? video : null;
+                                return res.ok ? video : null;
                             } catch {
                                 console.warn(`Video không tồn tại: ${video.url}`);
                                 return null;
