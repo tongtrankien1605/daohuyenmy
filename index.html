@@ -214,7 +214,7 @@
                         const cachedVideos = localStorage.getItem(CACHE_KEY);
                         if (cachedVideos) {
                             const cachedData = JSON.parse(cachedVideos);
-                            const response = await fetch("/daohuyenmy/videos.json?v=" + Date.now());
+                            const response = await fetch("https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos.json?v=" + Date.now());
                             const clonedResponse = response.clone();
                             if (clonedResponse.ok) {
                                 const newData = await clonedResponse.json();
@@ -233,7 +233,7 @@
 
                 if (!shouldUseCache) {
                     try {
-                        const response = await fetch("/daohuyenmy/videos.json?v=" + Date.now());
+                        const response = await fetch("https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos.json?v=" + Date.now());
                         const clonedResponse = response.clone();
                         if (!clonedResponse.ok) throw new Error("Lỗi tải videos.json");
                         const data = await clonedResponse.json();
