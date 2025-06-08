@@ -241,12 +241,15 @@
                         videoUrls = await Promise.all(
                             videoUrls.map(async (video) => {
                                 try {
-                                    const res = await fetch(video.url, { method: "HEAD" });
+                                    const res = await fetch(video.url, { method: "GET" }); // Thay HEAD bằng GET
                                     const clonedRes = res.clone();
-                                    if (!clonedRes.ok) return null;
+                                    if (!clonedRes.ok) {
+                                        console.warn(`Video không tải được: ${video.url}, Status: ${clonedRes.status}`);
+                                        return null;
+                                    }
                                     return clonedRes.ok ? video : null;
                                 } catch (e) {
-                                    console.warn(`Video không tồn tại: ${video.url}`, e);
+                                    console.warn(`Lỗi fetch video: ${video.url}`, e);
                                     return null;
                                 }
                             })

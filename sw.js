@@ -20,7 +20,7 @@ self.addEventListener("fetch", (event) => {
     const cacheKey = new Request(requestUrl.origin + requestUrl.pathname, {
         method: event.request.method,
         headers: event.request.headers,
-        mode: 'cors', // Sử dụng cors vì GitHub hỗ trợ
+        mode: 'cors',
         cache: 'default'
     });
 
