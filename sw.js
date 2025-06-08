@@ -1,11 +1,9 @@
 const CACHE_NAME = "tiktok-clone-v1";
-// Để rỗng urlsToCache
-const urlsToCache = [];
+const urlsToCache = []; // Giữ rỗng
 
 self.addEventListener("install", (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
-            // Không cần cache trước, chỉ mở cache
             return Promise.resolve();
         })
     );
@@ -31,7 +29,7 @@ self.addEventListener("fetch", (event) => {
                 return cachedResponse;
             }
             return fetch(event.request).then(networkResponse => {
-                if (networkResponse.ok && event.request.url.includes("tongtrankien1605.github.io/daohuyenmy")) {
+                if (networkResponse.ok && event.request.url.match(/tongtrankien1605\.github\.io\/daohuyenmy\/.*\.(mp4|json|ico|html)/i)) {
                     console.log("Caching:", event.request.url);
                     const clonedResponse = networkResponse.clone();
                     caches.open(CACHE_NAME).then(cache => 
