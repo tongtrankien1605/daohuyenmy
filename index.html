@@ -192,12 +192,12 @@
                         }
                         return fetch(event.request)
                             .then((networkResponse) => {
-                                if (networkResponse.ok && event.request.url.startsWith("https://tongtrankien1605.github.io/daohuyenmy/")) {
+                                if (networkResponse.ok && (event.request.url.startsWith("https://tongtrankien1605.github.io/daohuyenmy/") || event.request.url.includes("raw.githubusercontent.com"))) {
                                     caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse.clone()));
                                 }
                                 return networkResponse.clone(); // Clone Response
                             })
-                            .catch(() => caches.match(event.request)); // Fallback nếu lỗi
+                            .catch(() => caches.match('/offline.html')); // Fallback nếu lỗi
                     })
                 );
             });
@@ -213,7 +213,7 @@
                         const cachedVideos = localStorage.getItem(CACHE_KEY);
                         if (cachedVideos) {
                             const cachedData = JSON.parse(cachedVideos);
-                            const response = await fetch("https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos.json?v=" + Date.now(), { mode: "cors", credentials: "omit" });
+                            const response = await fetch("https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos.json?v=" + Date.now(), { mode: 'cors', credentials: 'omit' });
                             const clonedResponse = response.clone();
                             if (clonedResponse.ok) {
                                 const newData = await clonedResponse.json();
@@ -232,7 +232,7 @@
 
                 if (!shouldUseCache) {
                     try {
-                        const response = await fetch("https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos.json?v=" + Date.now(), { mode: "cors", credentials: "omit" });
+                        const response = await fetch("https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos.json?v=" + Date.now(), { mode: 'cors', credentials: 'omit' });
                         const clonedResponse = response.clone();
                         if (!clonedResponse.ok) throw new Error("Lỗi tải videos.json");
                         const data = await clonedResponse.json();
@@ -240,7 +240,7 @@
                         videoUrls = await Promise.all(
                             videoUrls.map(async (video) => {
                                 try {
-                                    const res = await fetch(video.url, { method: "GET", mode: "cors", credentials: "omit" });
+                                    const res = await fetch(video.url, { method: "GET", mode: 'cors', credentials: 'omit' });
                                     const clonedRes = res.clone();
                                     if (!clonedRes.ok) {
                                         console.warn(`Video không tải được: ${video.url}, Status: ${clonedRes.status}`);
@@ -345,6 +345,7 @@
                                     currentIndex = (currentIndex + 1) % videoUrls.length;
                                     loadVideos(true);
                                 } else if (index === 1) {
+                                    video.src = video.getAttribute("data-src") || video.src; // Khôi phục src nếu có
                                     if (!isFirstLoad) {
                                         video.play().catch(() => console.warn("Lỗi phát video:", video.src));
                                     }
@@ -359,7 +360,9 @@
                                 }
                             } else {
                                 video.pause();
-                                video.currentTime = 0;
+                                video.setAttribute("data-src", video.src); // Lưu src
+                                video.src = ""; // Unload
+                                video.load(); // Reset
                             }
                         });
                     },
@@ -368,14 +371,12 @@
 
                 videos.forEach((video) => {
                     observer.observe(video);
-
                     video.addEventListener("click", () => {
                         if (isFirstLoad) isFirstLoad = false;
                         video.paused ? video.play() : video.pause();
                         const btn = video.parentElement.querySelector(".control-btn");
                         if (btn) btn.textContent = video.paused ? "▶️" : "⏸";
                     });
-
                     video.addEventListener("timeupdate", () => {
                         const progress = video.parentElement.querySelector(".progress");
                         if (progress) {
@@ -383,7 +384,6 @@
                             progress.style.width = `${percent}%`;
                         }
                     });
-
                     const progressBar = video.parentElement.querySelector(".progress-bar");
                     if (progressBar) {
                         progressBar.addEventListener("click", (e) => {
@@ -392,17 +392,14 @@
                             video.currentTime = pos * video.duration;
                         });
                     }
-
                     video.addEventListener("ended", () => {
                         video.currentTime = 0;
                         video.play();
                     });
-
                     video.addEventListener("error", () => {
                         console.warn("Lỗi video:", video.src);
                         video.poster = "placeholder.jpg";
                     });
-
                     const wrapper = video.parentElement;
                     wrapper.addEventListener("mousemove", () => {
                         clearTimeout(hideControlsTimeout);
@@ -414,7 +411,6 @@
                             }, 3000);
                         }
                     });
-
                     wrapper.addEventListener("touchstart", () => {
                         clearTimeout(hideControlsTimeout);
                         const controls = wrapper.querySelector(".controls");
