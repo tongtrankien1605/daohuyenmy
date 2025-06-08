@@ -1,27 +1,12 @@
 const CACHE_NAME = "tiktok-clone-v1";
-const urlsToCache = [
-    "https://tongtrankien1605.github.io/daohuyenmy/",
-    "https://tongtrankien1605.github.io/daohuyenmy/index.html",
-    "https://tongtrankien1605.github.io/daohuyenmy/videos.json",
-    "https://tongtrankien1605.github.io/daohuyenmy/music/tran-ngoc-anh.mp4",
-    "https://tongtrankien1605.github.io/daohuyenmy/favicon.ico",
-    "https://tongtrankien1605.github.io/daohuyenmy/offline.html"
-];
+// Để rỗng urlsToCache
+const urlsToCache = [];
 
 self.addEventListener("install", (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then(cache => {
-            return Promise.all(
-                urlsToCache.map(url => {
-                    return fetch(url).then(response => {
-                        if (!response.ok) {
-                            console.error(`Failed to fetch ${url}: ${response.status}`);
-                            throw new Error(`Failed to fetch ${url}`);
-                        }
-                        return cache.add(url);
-                    }).catch(err => console.error(`Error caching ${url}:`, err));
-                })
-            );
+            // Không cần cache trước, chỉ mở cache
+            return Promise.resolve();
         })
     );
     self.skipWaiting();
@@ -47,13 +32,17 @@ self.addEventListener("fetch", (event) => {
             }
             return fetch(event.request).then(networkResponse => {
                 if (networkResponse.ok && event.request.url.includes("tongtrankien1605.github.io/daohuyenmy")) {
+                    console.log("Caching:", event.request.url);
                     const clonedResponse = networkResponse.clone();
                     caches.open(CACHE_NAME).then(cache => 
                         cache.put(event.request, clonedResponse)
                     );
                 }
                 return networkResponse;
-            }).catch(() => caches.match('/offline.html'));
+            }).catch(err => {
+                console.error("Fetch failed:", err);
+                return caches.match('/offline.html');
+            });
         })
     );
 });
