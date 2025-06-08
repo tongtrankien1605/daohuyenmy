@@ -3,7 +3,7 @@ const urlsToCache = [
     "https://tongtrankien1605.github.io/daohuyenmy/",
     "https://tongtrankien1605.github.io/daohuyenmy/index.html",
     "https://tongtrankien1605.github.io/daohuyenmy/videos.json",
-    "https://tongtrankien1605.github.io/daohuyenmy/music/tran-ngoc-anh.mp4",
+    "https://tongtrankien1605.github.io/daohuyenmy/music/*.mp4",
     "https://tongtrankien1605.github.io/daohuyenmy/favicon.ico"
 ];
 
@@ -33,8 +33,8 @@ self.addEventListener("fetch", (event) => {
                 return cachedResponse;
             }
             return fetch(event.request).then(networkResponse => {
-                if (networkResponse.ok && event.request.url.startsWith("https://tongtrankien1605.github.io/daohuyenmy/")) {
-                    const clonedResponse = networkResponse.clone(); // Clone ngay
+                if (networkResponse.ok && event.request.url.includes("tongtrankien1605.github.io/daohuyenmy")) {
+                    const clonedResponse = networkResponse.clone();
                     caches.open(CACHE_NAME).then(cache => 
                         cache.put(event.request, clonedResponse)
                     );
