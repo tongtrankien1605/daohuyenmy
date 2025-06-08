@@ -3,13 +3,26 @@ const urlsToCache = [
     "https://tongtrankien1605.github.io/daohuyenmy/",
     "https://tongtrankien1605.github.io/daohuyenmy/index.html",
     "https://tongtrankien1605.github.io/daohuyenmy/videos.json",
-    "https://tongtrankien1605.github.io/daohuyenmy/music/*.mp4",
-    "https://tongtrankien1605.github.io/daohuyenmy/favicon.ico"
+    "https://tongtrankien1605.github.io/daohuyenmy/music/tran-ngoc-anh.mp4",
+    "https://tongtrankien1605.github.io/daohuyenmy/favicon.ico",
+    "https://tongtrankien1605.github.io/daohuyenmy/offline.html"
 ];
 
 self.addEventListener("install", (event) => {
     event.waitUntil(
-        caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
+        caches.open(CACHE_NAME).then(cache => {
+            return Promise.all(
+                urlsToCache.map(url => {
+                    return fetch(url).then(response => {
+                        if (!response.ok) {
+                            console.error(`Failed to fetch ${url}: ${response.status}`);
+                            throw new Error(`Failed to fetch ${url}`);
+                        }
+                        return cache.add(url);
+                    }).catch(err => console.error(`Error caching ${url}:`, err));
+                })
+            );
+        })
     );
     self.skipWaiting();
 });
