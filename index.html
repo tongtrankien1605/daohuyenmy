@@ -245,8 +245,8 @@
                                     const clonedRes = res.clone();
                                     if (!clonedRes.ok) return null;
                                     return clonedRes.ok ? video : null;
-                                } catch {
-                                    console.warn(`Video không tồn tại: ${video.url}`);
+                                } catch (e) {
+                                    console.warn(`Video không tồn tại: ${video.url}`, e);
                                     return null;
                                 }
                             })

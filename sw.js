@@ -27,19 +27,20 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
     event.respondWith(
-        caches.match(event.request).then(response => {
-            if (response) {
+        caches.match(event.request).then(cachedResponse => {
+            if (cachedResponse) {
                 console.log("From cache:", event.request.url);
-                return response;
+                return cachedResponse;
             }
             return fetch(event.request).then(networkResponse => {
                 if (networkResponse.ok && event.request.url.startsWith("https://tongtrankien1605.github.io/daohuyenmy/")) {
+                    const clonedResponse = networkResponse.clone(); // Clone ngay
                     caches.open(CACHE_NAME).then(cache => 
-                        cache.put(event.request, networkResponse.clone())
+                        cache.put(event.request, clonedResponse)
                     );
                 }
                 return networkResponse;
-            }).catch(() => caches.match('/offline.html')); // Thêm fallback
+            }).catch(() => caches.match('/offline.html'));
         })
     );
 });
