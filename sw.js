@@ -21,7 +21,6 @@ self.addEventListener("fetch", (event) => {
         method: event.request.method,
         headers: event.request.headers,
         mode: 'cors',
-        credentials: 'omit',
         cache: 'default'
     });
 
@@ -33,7 +32,7 @@ self.addEventListener("fetch", (event) => {
                     return cachedResponse;
                 }
 
-                return fetch(event.request, { mode: 'cors', credentials: 'omit' }).then(networkResponse => {
+                return fetch(event.request, { mode: 'cors' }).then(networkResponse => {
                     if (networkResponse.ok && (event.request.url.includes("tongtrankien1605.github.io/daohuyenmy") || event.request.url.includes("raw.githubusercontent.com"))) {
                         console.log("Caching:", event.request.url);
                         const clonedResponse = networkResponse.clone();
