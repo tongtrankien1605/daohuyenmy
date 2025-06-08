@@ -1,6 +1,16 @@
 const CACHE_NAME = "tiktok-clone-v1";
 
 self.addEventListener("install", (event) => {
+    event.waitUntil(
+        caches.open(CACHE_NAME).then((cache) => {
+            return cache.addAll([
+                "/daohuyenmy/",
+                "/daohuyenmy/index.html",
+                "/daohuyenmy/videos.json",
+                "/daohuyenmy/music/tran-ngoc-anh.mp4"
+            ]);
+        })
+    );
     self.skipWaiting();
 });
 
@@ -21,7 +31,8 @@ self.addEventListener("fetch", (event) => {
         method: event.request.method,
         headers: event.request.headers,
         mode: 'cors',
-        cache: 'default'
+        cache: 'default',
+        credentials: 'omit' // Thêm credentials: 'omit' để tránh CORS
     });
 
     event.respondWith(
@@ -32,7 +43,7 @@ self.addEventListener("fetch", (event) => {
                     return cachedResponse;
                 }
 
-                return fetch(event.request, { mode: 'cors' }).then(networkResponse => {
+                return fetch(event.request, { mode: 'cors', credentials: 'omit' }).then(networkResponse => {
                     if (networkResponse.ok && (event.request.url.includes("tongtrankien1605.github.io/daohuyenmy") || event.request.url.includes("raw.githubusercontent.com"))) {
                         console.log("Caching:", event.request.url);
                         const clonedResponse = networkResponse.clone();

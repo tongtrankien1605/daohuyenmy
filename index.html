@@ -185,20 +185,34 @@
             });
 
             self.addEventListener("fetch", (event) => {
+                const requestUrl = new URL(event.request.url);
+                const cacheKey = new Request(requestUrl.origin + requestUrl.pathname, {
+                    method: event.request.method,
+                    headers: event.request.headers,
+                    mode: 'cors',
+                    cache: 'default'
+                });
+
                 event.respondWith(
-                    caches.match(event.request).then((response) => {
-                        if (response) {
-                            console.log("From cache:", event.request.url);
-                            return response;
-                        }
-                        return fetch(event.request)
-                            .then((networkResponse) => {
-                                if (networkResponse.ok && event.request.url.startsWith("https://tongtrankien1605.github.io/daohuyenmy/")) {
-                                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse.clone()));
+                    caches.open(CACHE_NAME).then(cache => {
+                        return cache.match(cacheKey).then(cachedResponse => {
+                            if (cachedResponse) {
+                                console.log("From cache:", event.request.url);
+                                return cachedResponse;
+                            }
+
+                            return fetch(event.request, { mode: 'cors', credentials: 'omit' }).then(networkResponse => {
+                                if (networkResponse.ok && (event.request.url.includes("tongtrankien1605.github.io/daohuyenmy") || event.request.url.includes("raw.githubusercontent.com"))) {
+                                    console.log("Caching:", event.request.url);
+                                    const clonedResponse = networkResponse.clone();
+                                    cache.put(cacheKey, clonedResponse);
                                 }
-                                return networkResponse.clone(); // Clone Response
-                            })
-                            .catch(() => caches.match(event.request)); // Fallback nếu lỗi
+                                return networkResponse;
+                            }).catch(err => {
+                                console.error("Fetch failed:", err);
+                                return caches.match('/offline.html');
+                            });
+                        });
                     })
                 );
             });
@@ -241,7 +255,7 @@
                         videoUrls = await Promise.all(
                             videoUrls.map(async (video) => {
                                 try {
-                                    const res = await fetch(video.url, { method: "GET" }); // Thay HEAD bằng GET
+                                    const res = await fetch(video.url, { method: "GET", mode: 'cors', credentials: 'omit' });
                                     const clonedRes = res.clone();
                                     if (!clonedRes.ok) {
                                         console.warn(`Video không tải được: ${video.url}, Status: ${clonedRes.status}`);
