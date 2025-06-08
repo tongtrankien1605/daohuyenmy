@@ -144,7 +144,8 @@
         <div class="video-container" id="videoContainer">
             <div class="loading">Đang tải...</div>
         </div>
-        <button class="refresh-btn" onclick="loadVideos(true)">Làm mới video</button>
+
+        <button class="refresh-btn" onclick="clearCacheAndReload()">Làm mới video</button>
 
         <script>
             let videoUrls = [];
@@ -165,105 +166,54 @@
                 return expiry && Date.now() < parseInt(expiry);
             }
 
-            async function loadVideos(isReload = false) {
-                if (isReloading) return;
-                isReloading = true;
-                const container = document.getElementById("videoContainer");
-                let shouldUseCache = false;
+            const CACHE_NAME = "tiktok-clone-v1";
+            const urlsToCache = ["/daohuyenmy/", "/daohuyenmy/index.html", "/daohuyenmy/videos.json", "/daohuyenmy/music/tran-ngoc-anh.mp4"];
 
-                if (!isReload && isCacheValid()) {
-                    try {
-                        const cachedVideos = localStorage.getItem(CACHE_KEY);
-                        if (cachedVideos) {
-                            const cachedData = JSON.parse(cachedVideos);
-                            const response = await fetch("/daohuyenmy/videos.json?v=" + Date.now());
-                            const clonedResponse = response.clone();
-                            if (clonedResponse.ok) {
-                                const newData = await clonedResponse.json();
-                                if (newData.version === cachedData.version) {
-                                    videoUrls = cachedData.videos;
-                                    shouldUseCache = true;
-                                }
-                            }
+            self.addEventListener("install", (event) => {
+                event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache)));
+                self.skipWaiting();
+            });
+
+            self.addEventListener("activate", (event) => {
+                const cacheWhitelist = [CACHE_NAME];
+                event.waitUntil(
+                    caches
+                        .keys()
+                        .then((cacheNames) => Promise.all(cacheNames.map((cacheName) => !cacheWhitelist.includes(cacheName) && caches.delete(cacheName))))
+                        .then(() => self.clients.claim())
+                );
+            });
+
+            self.addEventListener("fetch", (event) => {
+                event.respondWith(
+                    caches.match(event.request).then((response) => {
+                        if (response) {
+                            console.log("From cache:", event.request.url);
+                            return response;
                         }
-                    } catch (e) {
-                        console.error("Lỗi parse cache:", e);
-                        localStorage.removeItem(CACHE_KEY);
-                        localStorage.removeItem(CACHE_EXPIRY_KEY);
-                    }
-                }
-
-                if (!shouldUseCache) {
-                    try {
-                        const response = await fetch("/daohuyenmy/videos.json?v=" + Date.now());
-                        const clonedResponse = response.clone();
-                        if (!clonedResponse.ok) throw new Error("Lỗi tải videos.json");
-                        const data = await clonedResponse.json();
-                        videoUrls = data.videos.filter((v) => v.url && isValidVideoUrl(v.url));
-                        videoUrls = await Promise.all(
-                            videoUrls.map(async (video) => {
-                                try {
-                                    const res = await fetch(video.url, { method: "HEAD" });
-                                    const clonedRes = res.clone();
-                                    return clonedRes.ok ? video : null;
-                                } catch {
-                                    console.warn(`Video không tồn tại: ${video.url}`);
-                                    return null;
+                        return fetch(event.request)
+                            .then((networkResponse) => {
+                                if (networkResponse.ok && event.request.url.startsWith("https://tongtrankien1605.github.io/daohuyenmy/")) {
+                                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse.clone()));
                                 }
+                                return networkResponse.clone(); // Clone Response
                             })
-                        ).then((results) => results.filter((v) => v));
-                        localStorage.setItem(CACHE_KEY, JSON.stringify({ version: data.version, videos: videoUrls }));
-                        localStorage.setItem(CACHE_EXPIRY_KEY, Date.now() + CACHE_DURATION);
-                    } catch (e) {
-                        console.error("Lỗi tải video:", e);
-                        videoUrls = [];
+                            .catch(() => caches.match(event.request)); // Fallback nếu lỗi
+                    })
+                );
+            });
+
+            async function clearCacheAndReload() {
+                if ("serviceWorker" in navigator) {
+                    const registration = await navigator.serviceWorker.getRegistration("/daohuyenmy/sw.js");
+                    if (registration) {
+                        await registration.unregister();
+                        await caches.delete("tiktok-clone-v1");
                     }
                 }
-
-                if (!videoUrls.length) {
-                    container.innerHTML = '<p class="error-message">Không có video</p>';
-                    isReloading = false;
-                    return;
-                }
-
-                if (!isReload) {
-                    currentIndex = Math.floor(Math.random() * videoUrls.length);
-                }
-
-                const orderedVideos = getOrderedVideos();
-                container.innerHTML = "";
-                container.style.overflowY = "hidden";
-
-                orderedVideos.forEach((video, index) => {
-                    const slide = document.createElement("div");
-                    slide.className = "video-slide";
-                    slide.innerHTML = `
-            <div class="video-wrapper">
-                <video src="${video.url}" playsinline preload="${index === 1 ? "auto" : "none"}"></video>
-                <div class="progress-bar"><div class="progress"></div></div>
-                <div class="info"><p>${video.description || "Không có mô tả"}</p></div>
-            </div>
-            <div class="controls">
-                <button class="control-btn" onclick="togglePlay(this)">⏯️</button>
-                <button class="control-btn" onclick="toggleMute(this)">🔊</button>
-                <button class="control-btn" onclick="scrollToPrev()">⬆️</button>
-                <button class="control-btn" onclick="scrollToNext()">⬇️</button>
-            </div>
-        `;
-                    container.appendChild(slide);
-                });
-
-                requestAnimationFrame(() => {
-                    if (document.querySelectorAll(".video-slide").length === 3) {
-                        setupVideos();
-                        container.style.overflowY = "scroll";
-                        container.scrollTop = window.innerHeight;
-                    } else {
-                        console.warn("Chưa render đủ slide, thử lại...");
-                        setTimeout(() => loadVideos(isReload), 100);
-                    }
-                    isReloading = false;
-                });
+                localStorage.removeItem(CACHE_KEY);
+                localStorage.removeItem(CACHE_EXPIRY_KEY);
+                window.location.reload();
             }
 
             function getOrderedVideos() {
