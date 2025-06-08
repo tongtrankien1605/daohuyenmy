@@ -33,7 +33,7 @@ self.addEventListener("fetch", (event) => {
                 }
 
                 return fetch(event.request, { mode: 'cors' }).then(networkResponse => {
-                    if (networkResponse.ok && (event.request.url.startsWith("https://tongtrankien1605.github.io/daohuyenmy/") || event.request.url.includes("raw.githubusercontent.com"))) {
+                    if (networkResponse.ok && (event.request.url.includes("tongtrankien1605.github.io/daohuyenmy") || event.request.url.includes("raw.githubusercontent.com"))) {
                         console.log("Caching:", event.request.url);
                         const clonedResponse = networkResponse.clone();
                         cache.put(cacheKey, clonedResponse);
