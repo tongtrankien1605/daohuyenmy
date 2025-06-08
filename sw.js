@@ -22,18 +22,21 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+    const requestUrl = new URL(event.request.url);
+    const cacheKey = requestUrl.origin + requestUrl.pathname; // Bỏ query string
+
     event.respondWith(
-        caches.match(event.request).then(cachedResponse => {
+        caches.match(cacheKey).then(cachedResponse => {
             if (cachedResponse) {
                 console.log("From cache:", event.request.url);
                 return cachedResponse;
             }
             return fetch(event.request).then(networkResponse => {
-                if (networkResponse.ok && event.request.url.match(/tongtrankien1605\.github\.io\/daohuyenmy\/.*\.(mp4|json|ico|html)/i)) {
+                if (networkResponse.ok && event.request.url.includes("tongtrankien1605.github.io/daohuyenmy")) {
                     console.log("Caching:", event.request.url);
                     const clonedResponse = networkResponse.clone();
                     caches.open(CACHE_NAME).then(cache => 
-                        cache.put(event.request, clonedResponse)
+                        cache.put(cacheKey, clonedResponse) // Sử dụng cacheKey
                     );
                 }
                 return networkResponse;
