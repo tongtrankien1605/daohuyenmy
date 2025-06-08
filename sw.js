@@ -6,8 +6,7 @@ self.addEventListener("install", (event) => {
             return cache.addAll([
                 "/daohuyenmy/",
                 "/daohuyenmy/index.html",
-                "/daohuyenmy/videos.json",
-                "/daohuyenmy/music/tran-ngoc-anh.mp4"
+                "/daohuyenmy/videos.json"
             ]);
         })
     );
