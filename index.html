@@ -144,6 +144,7 @@
         <div class="video-container" id="videoContainer">
             <div class="loading">Đang tải...</div>
         </div>
+
         <button class="refresh-btn" onclick="clearCacheAndReload()">Làm mới video</button>
 
         <script>
@@ -192,12 +193,12 @@
                         }
                         return fetch(event.request)
                             .then((networkResponse) => {
-                                if (networkResponse.ok && (event.request.url.startsWith("https://tongtrankien1605.github.io/daohuyenmy/") || event.request.url.includes("raw.githubusercontent.com"))) {
+                                if (networkResponse.ok && event.request.url.startsWith("https://tongtrankien1605.github.io/daohuyenmy/")) {
                                     caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse.clone()));
                                 }
                                 return networkResponse.clone(); // Clone Response
                             })
-                            .catch(() => caches.match('/offline.html')); // Fallback nếu lỗi
+                            .catch(() => caches.match(event.request)); // Fallback nếu lỗi
                     })
                 );
             });
@@ -213,7 +214,7 @@
                         const cachedVideos = localStorage.getItem(CACHE_KEY);
                         if (cachedVideos) {
                             const cachedData = JSON.parse(cachedVideos);
-                            const response = await fetch("https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos.json?v=" + Date.now(), { mode: 'cors', credentials: 'omit' });
+                            const response = await fetch("https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos.json?v=" + Date.now());
                             const clonedResponse = response.clone();
                             if (clonedResponse.ok) {
                                 const newData = await clonedResponse.json();
@@ -221,8 +222,6 @@
                                     videoUrls = cachedData.videos;
                                     shouldUseCache = true;
                                 }
-                            } else {
-                                console.warn("Lỗi tải videos.json, status:", clonedResponse.status);
                             }
                         }
                     } catch (e) {
@@ -234,15 +233,15 @@
 
                 if (!shouldUseCache) {
                     try {
-                        const response = await fetch("https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos.json?v=" + Date.now(), { mode: 'cors', credentials: 'omit' });
+                        const response = await fetch("https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos.json?v=" + Date.now());
                         const clonedResponse = response.clone();
-                        if (!clonedResponse.ok) throw new Error(`Lỗi tải videos.json, status: ${clonedResponse.status}`);
+                        if (!clonedResponse.ok) throw new Error("Lỗi tải videos.json");
                         const data = await clonedResponse.json();
                         videoUrls = data.videos.filter((v) => v.url && isValidVideoUrl(v.url));
                         videoUrls = await Promise.all(
                             videoUrls.map(async (video) => {
                                 try {
-                                    const res = await fetch(video.url, { method: "GET", mode: 'cors', credentials: 'omit' });
+                                    const res = await fetch(video.url, { method: "GET" }); // Thay HEAD bằng GET
                                     const clonedRes = res.clone();
                                     if (!clonedRes.ok) {
                                         console.warn(`Video không tải được: ${video.url}, Status: ${clonedRes.status}`);
@@ -280,20 +279,19 @@
                 orderedVideos.forEach((video, index) => {
                     const slide = document.createElement("div");
                     slide.className = "video-slide";
-                    const preloadType = index === 1 ? "auto" : index === 0 || index === 2 ? "metadata" : "none"; // Preload auto cho hiện tại, metadata cho trước/sau
                     slide.innerHTML = `
-                        <div class="video-wrapper">
-                            <video src="${video.url}" playsinline preload="${preloadType}"></video>
-                            <div class="progress-bar"><div class="progress"></div></div>
-                            <div class="info"><p>${video.description || "Không có mô tả"}</p></div>
-                        </div>
-                        <div class="controls">
-                            <button class="control-btn" onclick="togglePlay(this)">⏯️</button>
-                            <button class="control-btn" onclick="toggleMute(this)">🔊</button>
-                            <button class="control-btn" onclick="scrollToPrev()">⬆️</button>
-                            <button class="control-btn" onclick="scrollToNext()">⬇️</button>
-                        </div>
-                    `;
+            <div class="video-wrapper">
+                <video src="${video.url}" playsinline preload="${index === 1 ? "auto" : "none"}"></video>
+                <div class="progress-bar"><div class="progress"></div></div>
+                <div class="info"><p>${video.description || "Không có mô tả"}</p></div>
+            </div>
+            <div class="controls">
+                <button class="control-btn" onclick="togglePlay(this)">⏯️</button>
+                <button class="control-btn" onclick="toggleMute(this)">🔊</button>
+                <button class="control-btn" onclick="scrollToPrev()">⬆️</button>
+                <button class="control-btn" onclick="scrollToNext()">⬇️</button>
+            </div>
+        `;
                     container.appendChild(slide);
                 });
 
@@ -347,7 +345,6 @@
                                     currentIndex = (currentIndex + 1) % videoUrls.length;
                                     loadVideos(true);
                                 } else if (index === 1) {
-                                    video.src = video.getAttribute("data-src") || video.src; // Khôi phục src
                                     if (!isFirstLoad) {
                                         video.play().catch(() => console.warn("Lỗi phát video:", video.src));
                                     }
@@ -362,9 +359,7 @@
                                 }
                             } else {
                                 video.pause();
-                                video.setAttribute("data-src", video.src); // Lưu src
-                                video.src = ""; // Unload
-                                video.load(); // Reset
+                                video.currentTime = 0;
                             }
                         });
                     },
@@ -373,12 +368,14 @@
 
                 videos.forEach((video) => {
                     observer.observe(video);
+
                     video.addEventListener("click", () => {
                         if (isFirstLoad) isFirstLoad = false;
                         video.paused ? video.play() : video.pause();
                         const btn = video.parentElement.querySelector(".control-btn");
                         if (btn) btn.textContent = video.paused ? "▶️" : "⏸";
                     });
+
                     video.addEventListener("timeupdate", () => {
                         const progress = video.parentElement.querySelector(".progress");
                         if (progress) {
@@ -386,6 +383,7 @@
                             progress.style.width = `${percent}%`;
                         }
                     });
+
                     const progressBar = video.parentElement.querySelector(".progress-bar");
                     if (progressBar) {
                         progressBar.addEventListener("click", (e) => {
@@ -394,14 +392,17 @@
                             video.currentTime = pos * video.duration;
                         });
                     }
+
                     video.addEventListener("ended", () => {
                         video.currentTime = 0;
                         video.play();
                     });
+
                     video.addEventListener("error", () => {
                         console.warn("Lỗi video:", video.src);
                         video.poster = "placeholder.jpg";
                     });
+
                     const wrapper = video.parentElement;
                     wrapper.addEventListener("mousemove", () => {
                         clearTimeout(hideControlsTimeout);
@@ -413,6 +414,7 @@
                             }, 3000);
                         }
                     });
+
                     wrapper.addEventListener("touchstart", () => {
                         clearTimeout(hideControlsTimeout);
                         const controls = wrapper.querySelector(".controls");
