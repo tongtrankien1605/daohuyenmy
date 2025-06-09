@@ -1,5 +1,17 @@
-# daohuyenmy
+## 🚀  **Lướt video ngắm gái xinh cùng tongtrankien1605** ! 🚀
 
+
+**Trang được code dựa theo cấu trúc nhỏ giống Tiktok, dùng để xem các video đã được upload lên server**
+
+<br/>
+
+## 👉 Xem ngay [Ở ĐÂY](https://tongtrankien1605.github.io/daohuyenmy) ạ !
+
+</br>
+</br>
+
+### Một số lưu ý
+</br>
 1. Xóa cache Service Worker
 
 Đổi CACHE_NAME trong sw.js
