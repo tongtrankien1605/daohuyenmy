@@ -1,0 +1,21 @@
+{
+    "version": "1.0.2",
+    "videos": [
+        { "url": "https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos/dao-huyen-my-01.mp4", "title": "Đào Huyền My 01", "description": "Mô tả video 1" },
+        { "url": "https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos/dao-huyen-my-02.mp4", "title": "Đào Huyền My 02", "description": "Mô tả video 2" },
+        { "url": "https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos/dao-huyen-my-03.mp4", "title": "Đào Huyền My 03", "description": "Mô tả video 3" },
+        { "url": "https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos/dao-huyen-my-04.mp4", "title": "Đào Huyền My 04", "description": "Mô tả video 4" },
+        { "url": "https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos/dao-huyen-my-05.mp4", "title": "Đào Huyền My 05", "description": "Mô tả video 5" },
+        { "url": "https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos/dao-huyen-my-06.mp4", "title": "Đào Huyền My 05", "description": "Mô tả video 6" },
+        { "url": "https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos/dao-huyen-my-07.mp4", "title": "Đào Huyền My 07", "description": "Mô tả video 7" },
+        { "url": "https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos/dao-huyen-my-08.mp4", "title": "Đào Huyền My 08", "description": "Mô tả video 8" },
+        { "url": "https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos/dao-huyen-my-09.mp4", "title": "Đào Huyền My 09", "description": "Mô tả video 9" },
+        { "url": "https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos/dao-huyen-my-10.mp4", "title": "Đào Huyền My 10", "description": "Mô tả video 10" },
+        { "url": "https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos/dao-huyen-my-11.mp4", "title": "Đào Huyền My 11", "description": "Mô tả video 11" },
+        { "url": "https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos/dao-huyen-my-12.mp4", "title": "Đào Huyền My 12", "description": "Mô tả video 12" },
+        { "url": "https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos/dao-huyen-my-13.mp4", "title": "Đào Huyền My 13", "description": "Mô tả video 13" },
+        { "url": "https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos/dao-huyen-my-14.mp4", "title": "Đào Huyền My 14", "description": "Mô tả video 14" },
+        { "url": "https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos/dao-huyen-my-15.mp4", "title": "Đào Huyền My 15", "description": "Mô tả video 15" }
+
+    ]
+}

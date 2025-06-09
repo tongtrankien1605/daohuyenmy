@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>TikTok Clone by Tống Trần Kiên</title>
+        <link rel="icon" type="image/x-icon" href="https://tongtrankien1605.github.io/daohuyenmy/favicon.ico" />
+        <style>
+            body {
+                margin: 0;
+                overflow: hidden;
+            }
+            .video-container {
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+                scroll-snap-type: y mandatory;
+                overflow-y: scroll;
+                transition: all 0.3s ease;
+            }
+            .video-slide {
+                height: 100vh;
+                scroll-snap-align: start;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                background: #000;
+                position: relative;
+            }
+            .video-wrapper {
+                position: relative;
+                width: 100%;
+                max-width: 540px;
+                aspect-ratio: 9 / 16;
+                height: 100%;
+                max-height: 960px;
+            }
+            video {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                cursor: pointer;
+            }
+            .info {
+                position: absolute;
+                bottom: 20px;
+                left: 10px;
+                color: white;
+                background: rgba(103, 98, 98, 0.1);
+                padding: 10px;
+                border-radius: 5px;
+                max-width: 90%;
+            }
+            .info p {
+                margin: 0;
+                font-size: 14px;
+            }
+            .controls {
+                position: absolute;
+                right: 10px;
+                top: 50%;
+                transform: translateY(-50%);
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
+                opacity: 1;
+                transition: opacity 0.3s ease;
+            }
+            .controls.hidden {
+                opacity: 0;
+            }
+            .control-btn {
+                background: rgba(0, 0, 0, 0.7);
+                color: white;
+                border: none;
+                padding: 18px;
+                cursor: pointer;
+                border-radius: 50%;
+                font-size: 45px;
+            }
+            .progress-bar {
+                position: absolute;
+                bottom: 10px;
+                left: 0;
+                right: 0;
+                height: 5px;
+                background: rgba(255, 255, 255, 0.3);
+                cursor: pointer;
+            }
+            .progress {
+                height: 100%;
+                background: #ff0000;
+                width: 0;
+            }
+            .error-message,
+            .loading {
+                color: white;
+                text-align: center;
+                font-size: 18px;
+                padding: 20px;
+            }
+            .refresh-btn {
+                position: fixed;
+                top: 10px;
+                right: 10px;
+                background: rgba(0, 0, 0, 0.7);
+                color: white;
+                border: none;
+                padding: 10px;
+                cursor: pointer;
+                border-radius: 5px;
+                font-size: 16px;
+            }
+            @media (max-width: 600px) {
+                .video-wrapper {
+                    max-width: 360px;
+                    max-height: 640px;
+                }
+                .control-btn {
+                    padding: 12px;
+                    font-size: 22px;
+                }
+                .info p {
+                    font-size: 12px;
+                }
+                .loading {
+                    display: inline-block;
+                    width: 40px;
+                    height: 40px;
+                    border: 4px solid #fff;
+                    border-top-color: #ff0000;
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                }
+                @keyframes spin {
+                    to {
+                        transform: rotate(360deg);
+                    }
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="video-container" id="videoContainer">
+            <div class="loading">Đang tải...</div>
+        </div>
+
+        <button class="refresh-btn" onclick="clearCacheAndReload()">Lag thì làm mới video</button>
+
+        <script>
+            let videoUrls = [];
+            let currentIndex = 0;
+            let isReloading = false;
+            let isFirstLoad = true;
+            let observer = null;
+            const CACHE_KEY = "videoUrls";
+            const CACHE_EXPIRY_KEY = "videoUrlsExpiry";
+            const CACHE_DURATION = 1 * 30 * 60 * 1000; // 30 phút
+
+            function isValidVideoUrl(url) {
+                return /\.(mp4|webm|ogg)$/i.test(url);
+            }
+
+            function isCacheValid() {
+                const expiry = localStorage.getItem(CACHE_EXPIRY_KEY);
+                return expiry && Date.now() < parseInt(expiry);
+            }
+
+            const CACHE_NAME = "tiktok-clone-v1";
+            const urlsToCache = [
+                // "/daohuyenmy/videos",
+                "/daohuyenmy/favicon.ico",
+                "/daohuyenmy/index.html",
+                "/daohuyenmy/offline.html",
+                "/daohuyenmy/placeholder.jpg",
+                // "/daohuyenmy/README.md",
+                "/daohuyenmy/sw.js",
+                "/daohuyenmy/videos.json",
+            ];
+
+            self.addEventListener("install", (event) => {
+                event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache)));
+                self.skipWaiting();
+            });
+
+            self.addEventListener("activate", (event) => {
+                const cacheWhitelist = [CACHE_NAME];
+                event.waitUntil(
+                    caches
+                        .keys()
+                        .then((cacheNames) => Promise.all(cacheNames.map((cacheName) => !cacheWhitelist.includes(cacheName) && caches.delete(cacheName))))
+                        .then(() => self.clients.claim())
+                );
+            });
+
+            self.addEventListener("fetch", (event) => {
+                const requestUrl = new URL(event.request.url);
+                const cacheKey = new Request(requestUrl.origin + requestUrl.pathname, {
+                    method: event.request.method,
+                    headers: event.request.headers,
+                    mode: "cors",
+                    cache: "default",
+                });
+
+                event.respondWith(
+                    caches.open(CACHE_NAME).then((cache) => {
+                        return cache.match(cacheKey).then((cachedResponse) => {
+                            if (cachedResponse) {
+                                console.log("From cache:", event.request.url);
+                                return cachedResponse;
+                            }
+
+                            return fetch(event.request, { mode: "cors", credentials: "omit" })
+                                .then((networkResponse) => {
+                                    if (
+                                        networkResponse.ok &&
+                                        networkResponse.status === 200 &&
+                                        (event.request.url.includes("tongtrankien1605.github.io/daohuyenmy") || event.request.url.includes("raw.githubusercontent.com"))
+                                    ) {
+                                        console.log("Caching:", event.request.url);
+                                        const clonedResponse = networkResponse.clone();
+                                        return cache.put(cacheKey, clonedResponse);
+                                    }
+                                    return networkResponse;
+                                })
+                                .catch((err) => {
+                                    console.error("Fetch failed:", err);
+                                    return caches.match("/offline.html");
+                                });
+                        });
+                    })
+                );
+            });
+
+            async function loadVideos(isReload = false) {
+                if (isReloading) return;
+                isReloading = true;
+                const container = document.getElementById("videoContainer");
+                let shouldUseCache = false;
+
+                if (!isReload && isCacheValid()) {
+                    try {
+                        const cachedVideos = localStorage.getItem(CACHE_KEY);
+                        if (cachedVideos) {
+                            const cachedData = JSON.parse(cachedVideos);
+                            const response = await fetch("https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos.json?v=" + Date.now());
+                            const clonedResponse = response.clone();
+                            if (clonedResponse.ok) {
+                                const newData = await clonedResponse.json();
+                                if (newData.version === cachedData.version) {
+                                    videoUrls = cachedData.videos;
+                                    shouldUseCache = true;
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Lỗi parse cache:", e);
+                        localStorage.removeItem(CACHE_KEY);
+                        localStorage.removeItem(CACHE_EXPIRY_KEY);
+                    }
+                }
+
+                if (!shouldUseCache) {
+                    try {
+                        const response = await fetch("https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos.json?v=" + Date.now());
+                        const clonedResponse = response.clone();
+                        if (!clonedResponse.ok) throw new Error("Lỗi tải videos.json");
+                        const data = await clonedResponse.json();
+                        videoUrls = data.videos.filter((v) => v.url && isValidVideoUrl(v.url));
+                        videoUrls = await Promise.all(
+                            videoUrls.map(async (video) => {
+                                try {
+                                    const res = await fetch(video.url, { method: "GET", mode: "cors", credentials: "omit" });
+                                    const clonedRes = res.clone();
+                                    if (!clonedRes.ok) {
+                                        console.warn(`Video không tải được: ${video.url}, Status: ${clonedRes.status}`);
+                                        return null;
+                                    }
+                                    return clonedRes.ok ? video : null;
+                                } catch (e) {
+                                    console.warn(`Lỗi fetch video: ${video.url}`, e);
+                                    return null;
+                                }
+                            })
+                        ).then((results) => results.filter((v) => v));
+                        localStorage.setItem(CACHE_KEY, JSON.stringify({ version: data.version, videos: videoUrls }));
+                        localStorage.setItem(CACHE_EXPIRY_KEY, Date.now() + CACHE_DURATION);
+                    } catch (e) {
+                        console.error("Lỗi tải video:", e);
+                        videoUrls = [];
+                    }
+                }
+
+                if (!videoUrls.length) {
+                    container.innerHTML = '<p class="error-message">Không có video</p>';
+                    isReloading = false;
+                    return;
+                }
+
+                if (!isReload) {
+                    currentIndex = Math.floor(Math.random() * videoUrls.length);
+                }
+
+                const orderedVideos = getOrderedVideos();
+                container.innerHTML = "";
+                container.style.overflowY = "hidden";
+
+                orderedVideos.forEach((video, index) => {
+                    const slide = document.createElement("div");
+                    slide.className = "video-slide";
+                    slide.innerHTML = `
+            <div class="video-wrapper">
+                <video src="${video.url}" playsinline preload="${index === 1 ? "auto" : "none"}"></video>
+                <div class="progress-bar"><div class="progress"></div></div>
+                <div class="info"><p>${video.description || "Không có mô tả"}</p></div>
+            </div>
+            <div class="controls">
+                <button class="control-btn" onclick="togglePlay(this)">⏯️</button>
+                <button class="control-btn" onclick="toggleMute(this)">🔊</button>
+                <button class="control-btn" onclick="scrollToPrev()">⬆️</button>
+                <button class="control-btn" onclick="scrollToNext()">⬇️</button>
+            </div>
+        `;
+                    container.appendChild(slide);
+                });
+
+                requestAnimationFrame(() => {
+                    if (document.querySelectorAll(".video-slide").length === 3) {
+                        setupVideos();
+                        container.style.overflowY = "scroll";
+                        container.scrollTop = window.innerHeight;
+                    } else {
+                        console.warn("Chưa render đủ slide, thử lại...");
+                        setTimeout(() => loadVideos(isReload), 100);
+                    }
+                    isReloading = false;
+                });
+            }
+
+            async function clearCacheAndReload() {
+                if ("serviceWorker" in navigator) {
+                    const registration = await navigator.serviceWorker.getRegistration("/daohuyenmy/sw.js");
+                    if (registration) {
+                        await registration.unregister();
+                        await caches.delete("tiktok-clone-v1");
+                    }
+                }
+                localStorage.removeItem(CACHE_KEY);
+                localStorage.removeItem(CACHE_EXPIRY_KEY);
+                window.location.reload();
+            }
+
+            function getOrderedVideos() {
+                const prevIndex = (currentIndex - 1 + videoUrls.length) % videoUrls.length;
+                const nextIndex = (currentIndex + 1) % videoUrls.length;
+                return [videoUrls[prevIndex], videoUrls[currentIndex], videoUrls[nextIndex]];
+            }
+
+            function setupVideos() {
+                if (observer) observer.disconnect();
+                const videos = document.querySelectorAll("video");
+                let hideControlsTimeout;
+
+                observer = new IntersectionObserver(
+                    (entries) => {
+                        entries.forEach((entry) => {
+                            const video = entry.target;
+                            const index = Array.from(videos).indexOf(video);
+                            if (entry.isIntersecting && !isReloading) {
+                                if (index === 0) {
+                                    currentIndex = (currentIndex - 1 + videoUrls.length) % videoUrls.length;
+                                    loadVideos(true);
+                                } else if (index === 2) {
+                                    currentIndex = (currentIndex + 1) % videoUrls.length;
+                                    loadVideos(true);
+                                } else if (index === 1) {
+                                    if (!isFirstLoad) {
+                                        video.play().catch(() => console.warn("Lỗi phát video:", video.src));
+                                    }
+                                    clearTimeout(hideControlsTimeout);
+                                    const controls = video.parentElement.querySelector(".controls");
+                                    if (controls) {
+                                        controls.classList.remove("hidden");
+                                        hideControlsTimeout = setTimeout(() => {
+                                            controls.classList.add("hidden");
+                                        }, 3000);
+                                    }
+                                }
+                            } else {
+                                video.pause();
+                                video.currentTime = 0;
+                            }
+                        });
+                    },
+                    { threshold: 0.7, rootMargin: "50px" }
+                );
+
+                videos.forEach((video) => {
+                    observer.observe(video);
+
+                    video.addEventListener("click", () => {
+                        if (isFirstLoad) isFirstLoad = false;
+                        video.paused ? video.play() : video.pause();
+                        const btn = video.parentElement.querySelector(".control-btn");
+                        if (btn) btn.textContent = video.paused ? "▶️" : "⏸";
+                    });
+
+                    video.addEventListener("timeupdate", () => {
+                        const progress = video.parentElement.querySelector(".progress");
+                        if (progress) {
+                            const percent = (video.currentTime / video.duration) * 100;
+                            progress.style.width = `${percent}%`;
+                        }
+                    });
+
+                    const progressBar = video.parentElement.querySelector(".progress-bar");
+                    if (progressBar) {
+                        progressBar.addEventListener("click", (e) => {
+                            const rect = progressBar.getBoundingClientRect();
+                            const pos = (e.clientX - rect.left) / rect.width;
+                            video.currentTime = pos * video.duration;
+                        });
+                    }
+
+                    video.addEventListener("ended", () => {
+                        video.currentTime = 0;
+                        video.play();
+                    });
+
+                    video.addEventListener("error", () => {
+                        console.warn("Lỗi video:", video.src);
+                        video.poster = "placeholder.jpg";
+                    });
+
+                    const wrapper = video.parentElement;
+                    wrapper.addEventListener("mousemove", () => {
+                        clearTimeout(hideControlsTimeout);
+                        const controls = wrapper.querySelector(".controls");
+                        if (controls) {
+                            controls.classList.remove("hidden");
+                            hideControlsTimeout = setTimeout(() => {
+                                controls.classList.add("hidden");
+                            }, 3000);
+                        }
+                    });
+
+                    wrapper.addEventListener("touchstart", () => {
+                        clearTimeout(hideControlsTimeout);
+                        const controls = wrapper.querySelector(".controls");
+                        if (controls) {
+                            controls.classList.remove("hidden");
+                            hideControlsTimeout = setTimeout(() => {
+                                controls.classList.add("hidden");
+                            }, 3000);
+                        }
+                    });
+                });
+
+                document.addEventListener("keydown", (e) => {
+                    if (e.key === "ArrowUp") scrollToPrev();
+                    if (e.key === "ArrowDown") scrollToNext();
+                });
+            }
+
+            function togglePlay(btn) {
+                const video = btn.closest(".video-slide").querySelector("video");
+                if (isFirstLoad) isFirstLoad = false;
+                video.paused ? video.play() : video.pause();
+                btn.textContent = video.paused ? "▶️" : "⏸";
+            }
+
+            function toggleMute(btn) {
+                const video = btn.closest(".video-slide").querySelector("video");
+                video.muted = !video.muted;
+                btn.textContent = video.muted ? "🔇" : "🔊";
+            }
+
+            function scrollToNext() {
+                const container = document.getElementById("videoContainer");
+                const nextSlide = container.scrollTop + window.innerHeight;
+                container.scrollTo({ top: nextSlide, behavior: "smooth" });
+            }
+
+            function scrollToPrev() {
+                const container = document.getElementById("videoContainer");
+                const prevSlide = container.scrollTop - window.innerHeight;
+                container.scrollTo({ top: prevSlide, behavior: "smooth" });
+            }
+
+            if ("serviceWorker" in navigator) {
+                window.addEventListener("load", () => {
+                    navigator.serviceWorker.register("/daohuyenmy/sw.js").then(
+                        (registration) => {
+                            console.log("Service Worker đăng ký thành công:", registration.scope);
+                        },
+                        (error) => {
+                            console.error("Lỗi đăng ký Service Worker:", error);
+                        }
+                    );
+                });
+            }
+
+            loadVideos();
+        </script>
+    </body>
+</html>
