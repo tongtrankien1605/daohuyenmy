@@ -36,7 +36,7 @@ self.addEventListener("fetch", (event) => {
         headers: event.request.headers,
         mode: 'cors',
         cache: 'default',
-        credentials: 'omit' // Thêm credentials: 'omit' để tránh CORS
+        credentials: 'omit'
     });
 
     event.respondWith(

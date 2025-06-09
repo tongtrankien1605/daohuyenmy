@@ -155,7 +155,7 @@
             let observer = null;
             const CACHE_KEY = "videoUrls";
             const CACHE_EXPIRY_KEY = "videoUrlsExpiry";
-            const CACHE_DURATION = 1 * 30 * 60 * 1000; // 30 phút
+            const CACHE_DURATION = 30 * 60 * 1000; // 30 phút
 
             function isValidVideoUrl(url) {
                 return /\.(mp4|webm|ogg)$/i.test(url);
@@ -165,72 +165,6 @@
                 const expiry = localStorage.getItem(CACHE_EXPIRY_KEY);
                 return expiry && Date.now() < parseInt(expiry);
             }
-
-            const CACHE_NAME = "tiktok-clone-v1";
-            const urlsToCache = [
-                // "/daohuyenmy/videos",
-                "/daohuyenmy/favicon.ico",
-                "/daohuyenmy/index.html",
-                "/daohuyenmy/offline.html",
-                "/daohuyenmy/placeholder.jpg",
-                // "/daohuyenmy/README.md",
-                "/daohuyenmy/sw.js",
-                "/daohuyenmy/videos.json",
-            ];
-
-            self.addEventListener("install", (event) => {
-                event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache)));
-                self.skipWaiting();
-            });
-
-            self.addEventListener("activate", (event) => {
-                const cacheWhitelist = [CACHE_NAME];
-                event.waitUntil(
-                    caches
-                        .keys()
-                        .then((cacheNames) => Promise.all(cacheNames.map((cacheName) => !cacheWhitelist.includes(cacheName) && caches.delete(cacheName))))
-                        .then(() => self.clients.claim())
-                );
-            });
-
-            self.addEventListener("fetch", (event) => {
-                const requestUrl = new URL(event.request.url);
-                const cacheKey = new Request(requestUrl.origin + requestUrl.pathname, {
-                    method: event.request.method,
-                    headers: event.request.headers,
-                    mode: "cors",
-                    cache: "default",
-                });
-
-                event.respondWith(
-                    caches.open(CACHE_NAME).then((cache) => {
-                        return cache.match(cacheKey).then((cachedResponse) => {
-                            if (cachedResponse) {
-                                console.log("From cache:", event.request.url);
-                                return cachedResponse;
-                            }
-
-                            return fetch(event.request, { mode: "cors", credentials: "omit" })
-                                .then((networkResponse) => {
-                                    if (
-                                        networkResponse.ok &&
-                                        networkResponse.status === 200 &&
-                                        (event.request.url.includes("tongtrankien1605.github.io/daohuyenmy") || event.request.url.includes("raw.githubusercontent.com"))
-                                    ) {
-                                        console.log("Caching:", event.request.url);
-                                        const clonedResponse = networkResponse.clone();
-                                        return cache.put(cacheKey, clonedResponse);
-                                    }
-                                    return networkResponse;
-                                })
-                                .catch((err) => {
-                                    console.error("Fetch failed:", err);
-                                    return caches.match("/offline.html");
-                                });
-                        });
-                    })
-                );
-            });
 
             async function loadVideos(isReload = false) {
                 if (isReloading) return;
@@ -244,9 +178,8 @@
                         if (cachedVideos) {
                             const cachedData = JSON.parse(cachedVideos);
                             const response = await fetch("https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos.json?v=" + Date.now());
-                            const clonedResponse = response.clone();
-                            if (clonedResponse.ok) {
-                                const newData = await clonedResponse.json();
+                            if (response.ok) {
+                                const newData = await response.json();
                                 if (newData.version === cachedData.version) {
                                     videoUrls = cachedData.videos;
                                     shouldUseCache = true;
@@ -263,31 +196,16 @@
                 if (!shouldUseCache) {
                     try {
                         const response = await fetch("https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos.json?v=" + Date.now());
-                        const clonedResponse = response.clone();
-                        if (!clonedResponse.ok) throw new Error("Lỗi tải videos.json");
-                        const data = await clonedResponse.json();
+                        if (!response.ok) throw new Error("Lỗi tải videos.json");
+                        const data = await response.json();
                         videoUrls = data.videos.filter((v) => v.url && isValidVideoUrl(v.url));
-                        videoUrls = await Promise.all(
-                            videoUrls.map(async (video) => {
-                                try {
-                                    const res = await fetch(video.url, { method: "GET", mode: "cors", credentials: "omit" });
-                                    const clonedRes = res.clone();
-                                    if (!clonedRes.ok) {
-                                        console.warn(`Video không tải được: ${video.url}, Status: ${clonedRes.status}`);
-                                        return null;
-                                    }
-                                    return clonedRes.ok ? video : null;
-                                } catch (e) {
-                                    console.warn(`Lỗi fetch video: ${video.url}`, e);
-                                    return null;
-                                }
-                            })
-                        ).then((results) => results.filter((v) => v));
                         localStorage.setItem(CACHE_KEY, JSON.stringify({ version: data.version, videos: videoUrls }));
                         localStorage.setItem(CACHE_EXPIRY_KEY, Date.now() + CACHE_DURATION);
                     } catch (e) {
                         console.error("Lỗi tải video:", e);
-                        videoUrls = [];
+                        container.innerHTML = '<p class="error-message">Không có video</p>';
+                        isReloading = false;
+                        return;
                     }
                 }
 
@@ -301,6 +219,18 @@
                     currentIndex = Math.floor(Math.random() * videoUrls.length);
                 }
 
+                // Chỉ tải video hiện tại
+                const currentVideo = videoUrls[currentIndex];
+                try {
+                    const res = await fetch(currentVideo.url, { method: "GET", mode: "cors", credentials: "omit" });
+                    if (!res.ok) throw new Error(`Video không tải được: ${currentVideo.url}`);
+                } catch (e) {
+                    console.warn(`Lỗi fetch video: ${currentVideo.url}`, e);
+                    container.innerHTML = '<p class="error-message">Lỗi tải video</p>';
+                    isReloading = false;
+                    return;
+                }
+
                 const orderedVideos = getOrderedVideos();
                 container.innerHTML = "";
                 container.style.overflowY = "hidden";
@@ -309,18 +239,18 @@
                     const slide = document.createElement("div");
                     slide.className = "video-slide";
                     slide.innerHTML = `
-            <div class="video-wrapper">
-                <video src="${video.url}" playsinline preload="${index === 1 ? "auto" : "none"}"></video>
-                <div class="progress-bar"><div class="progress"></div></div>
-                <div class="info"><p>${video.description || "Không có mô tả"}</p></div>
-            </div>
-            <div class="controls">
-                <button class="control-btn" onclick="togglePlay(this)">⏯️</button>
-                <button class="control-btn" onclick="toggleMute(this)">🔊</button>
-                <button class="control-btn" onclick="scrollToPrev()">⬆️</button>
-                <button class="control-btn" onclick="scrollToNext()">⬇️</button>
-            </div>
-        `;
+                        <div class="video-wrapper">
+                            <video src="${video.url}" playsinline preload="${index === 1 ? "auto" : "none"}"></video>
+                            <div class="progress-bar"><div class="progress"></div></div>
+                            <div class="info"><p>${video.description || "Không có mô tả"}</p></div>
+                        </div>
+                        <div class="controls">
+                            <button class="control-btn" onclick="togglePlay(this)">⏯️</button>
+                            <button class="control-btn" onclick="toggleMute(this)">🔊</button>
+                            <button class="control-btn" onclick="scrollToPrev()">⬆️</button>
+                            <button class="control-btn" onclick="scrollToNext()">⬇️</button>
+                        </div>
+                    `;
                     container.appendChild(slide);
                 });
 
