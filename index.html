@@ -167,7 +167,16 @@
             }
 
             const CACHE_NAME = "tiktok-clone-v1";
-            const urlsToCache = ["/daohuyenmy/", "/daohuyenmy/index.html", "/daohuyenmy/videos.json", "/daohuyenmy/music/tran-ngoc-anh.mp4"];
+            const urlsToCache = [
+                // "/daohuyenmy/videos",
+                "/daohuyenmy/favicon.ico",
+                "/daohuyenmy/index.html",
+                "/daohuyenmy/offline.html",
+                "/daohuyenmy/placeholder.jpg",
+                // "/daohuyenmy/README.md",
+                "/daohuyenmy/sw.js",
+                "/daohuyenmy/videos.json",
+            ];
 
             self.addEventListener("install", (event) => {
                 event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache)));

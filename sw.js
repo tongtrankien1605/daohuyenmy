@@ -4,8 +4,13 @@ self.addEventListener("install", (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
             return cache.addAll([
-                "/daohuyenmy/",
+                // "/daohuyenmy/videos",
+                "/daohuyenmy/favicon.ico",
                 "/daohuyenmy/index.html",
+                "/daohuyenmy/offline.html",
+                "/daohuyenmy/placeholder.jpg",
+                // "/daohuyenmy/README.md",
+                "/daohuyenmy/sw.js",
                 "/daohuyenmy/videos.json"
             ]);
         })
