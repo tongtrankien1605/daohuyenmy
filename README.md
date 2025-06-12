@@ -8,9 +8,48 @@
 ## 👉 Xem ngay [Ở ĐÂY](https://tongtrankien1605.github.io/daohuyenmy) ạ !
 
 </br>
+
+## Ghi chú về Cấu hình và Sử dụng Dự án
+
+### 1. Cấu hình BASE URL
+Dự án sử dụng các hằng số BASE URL để quản lý đường dẫn tài nguyên:
+- `GITHUB_PAGES_BASE`: Domain GitHub Pages (mặc định: `https://tongtrankien1605.github.io`).
+- `REPOSITORY_ROOT`: Thư mục gốc của repository trên GitHub Pages (mặc định: `/daohuyenmy/`).
+- `BASE_URL`: Ghép từ `GITHUB_PAGES_BASE` và `REPOSITORY_ROOT` (mặc định: `https://tongtrankien1605.github.io/daohuyenmy/`).
+- `RAW_GITHUB_BASE`: Domain raw GitHub (mặc định: `https://raw.githubusercontent.com/tongtrankien1605`).
+- `RAW_REPOSITORY_ROOT`: Thư mục và branch raw (mặc định: `/daohuyenmy/main/`).
+- `RAW_BASE_URL`: Ghép từ `RAW_GITHUB_BASE` và `RAW_REPOSITORY_ROOT` (mặc định: `https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/`).
+
+#### Cách thay đổi BASE URL
+- **Thay đổi tài khoản GitHub**:
+  - Cập nhật `GITHUB_PAGES_BASE` (ví dụ: `https://newuser.github.io`) và `RAW_GITHUB_BASE` (ví dụ: `https://raw.githubusercontent.com/newuser`).
+  - Deploy lại dự án trên tài khoản mới và cập nhật `videos.json` với URL raw mới.
+- **Thay đổi thư mục repository**:
+  - Cập nhật `REPOSITORY_ROOT` (ví dụ: `/new-folder/`) và `RAW_REPOSITORY_ROOT` (ví dụ: `/new-folder/new-branch/`).
+  - Di chuyển file trong repo, push lên branch mới, và cập nhật cấu hình GitHub Pages.
+- **Ví dụ**:
+  - Từ: `BASE_URL = "https://tongtrankien1605.github.io/daohuyenmy/"`, `RAW_BASE_URL = "https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/"`.
+  - Sang: `BASE_URL = "https://newuser.github.io/new-folder/"`, `RAW_BASE_URL = "https://raw.githubusercontent.com/newuser/new-folder/new-branch/"`.
+
+### 2. Cấu hình GitHub Pages
+- Vào Settings > Pages, đặt:
+  - **Source**: Branch `main` (hoặc branch bạn dùng).
+  - **Folder**: `/ (root)` nếu file ở gốc `/daohuyenmy/`, hoặc thư mục tương ứng nếu thay đổi `REPOSITORY_ROOT`.
+- Đảm bảo file `sw.js`, `index.html`, và `videos.json` được push lên đúng thư mục.
+
+### 3. Lưu ý quan trọng
+- **Kiểm tra Service Worker**: Truy cập `BASE_URL + "sw.js"` (ví dụ: `https://tongtrankien1605.github.io/daohuyenmy/sw.js`) để xác nhận file tồn tại. Nếu 404, kiểm tra vị trí file và push lại.
+- **Debug**: Mở DevTools (F12) > Console để kiểm tra log đăng ký Service Worker (`"Service Worker đăng ký thành công"` hoặc lỗi).
+- **Cache**: Nếu thêm giới hạn cache 500MB, tích hợp logic `IndexedDB` và xóa video cũ nhất (xem code trước).
+- **Video URL**: Đảm bảo `videos.json` chứa URL video bắt đầu từ `RAW_BASE_URL` (ví dụ: `https://raw.githubusercontent.com/tongtrankien1605/daohuyenmy/main/videos/video1.mp4`).
+- **Deploy**: Sau thay đổi, chạy `git add .`, `git commit -m "Cập nhật cấu hình"`, `git push`.
+
+### 4. Liên hệ hỗ trợ
+Nếu gặp vấn đề, liên hệ Tống Trần Kiên để được hỗ trợ (thông tin liên hệ: [thêm nếu cần]).
+
 </br>
 
-### Một số lưu ý
+## 😗 Một số lưu ý
 </br>
 1. Xóa cache Service Worker
 
