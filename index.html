@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Đào Huyền My - 27/04/2005</title>
+        <link rel="icon" type="image/x-icon" href="favicon.ico" />
+        <style>
+            body {
+                margin: 0;
+                overflow: hidden;
+            }
+            .video-container {
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+                scroll-snap-type: y mandatory;
+                overflow-y: scroll;
+                transition: all 0.3s ease;
+            }
+            .video-slide {
+                height: 100vh;
+                scroll-snap-align: start;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                background: #000;
+                position: relative;
+            }
+            .video-wrapper {
+                position: relative;
+                width: 100%;
+                max-width: 540px;
+                aspect-ratio: 9 / 16;
+                height: 100%;
+                max-height: 960px;
+            }
+            video {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                cursor: pointer;
+            }
+            .info {
+                position: absolute;
+                bottom: 20px;
+                left: 10px;
+                color: white;
+                background: rgba(103, 98, 98, 0.1);
+                padding: 10px;
+                border-radius: 5px;
+                max-width: 90%;
+            }
+            .info p {
+                margin: 0;
+                font-size: 12px;
+            }
+            .controls {
+                position: absolute;
+                right: 10px;
+                top: 50%;
+                transform: translateY(-50%);
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
+                opacity: 1;
+            }
+            .control-btn {
+                background: rgba(0, 0, 0, 0.7);
+                color: white;
+                border: none;
+                padding: 18px;
+                cursor: pointer;
+                border-radius: 50%;
+                font-size: 45px;
+            }
+            .progress-bar {
+                position: absolute;
+                bottom: 10px;
+                left: 0;
+                right: 0;
+                height: 5px;
+                background: rgba(255, 255, 255, 0.3);
+                cursor: pointer;
+            }
+            .progress {
+                height: 100%;
+                background: #ff0000;
+                width: 0;
+            }
+            .error-message,
+            .loading {
+                color: white;
+                text-align: center;
+                font-size: 18px;
+                padding: 123px;
+            }
+            .refresh-btn {
+                position: fixed;
+                top: 10px;
+                right: 35px;
+                background: rgba(0, 0, 0, 0.7);
+                color: white;
+                border: none;
+                padding: 10px;
+                cursor: pointer;
+                border-radius: 5px;
+                font-size: 16px;
+            }
+            @media (max-width: 600px) {
+                .video-wrapper {
+                    max-width: 360px;
+                    max-height: 640px;
+                }
+                .control-btn {
+                    padding: 12px;
+                    font-size: 22px;
+                }
+                .info p {
+                    font-size: 12px;
+                }
+                .loading {
+                    display: inline-block;
+                    width: 40px;
+                    height: 40px;
+                    border: 4px solid #fff;
+                    border-top-color: #ff0000;
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                }
+                @keyframes spin {
+                    to {
+                        transform: rotate(360deg);
+                    }
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="video-container" id="videoContainer">
+            <div class="loading">Đang tải...</div>
+        </div>
+
+        <button class="refresh-btn" onclick="clearCacheAndReload()">🔄 Reload Video 🔄</button>
+
+        <script>
+            // Định nghĩa ánh xạ hostname với base path
+            const baseConfig = new Map([
+                ["netlify.app", "/"],   // Netlify
+                ["vercel.app", "/"],    // Vercel
+                ["pages.dev", "/"],     // Cloudflare Pages
+                ["onrender.com", "/"],  // Render
+            ]);
+
+            // Lấy hostname hiện tại
+            const hostname = window.location.hostname;
+
+            // Xác định REPOSITORY_ROOT dựa trên hostname
+            let REPOSITORY_ROOT = "/"; // Mặc định là /
+            if (hostname === "github.io" || hostname.endsWith(".github.io") || hostname === "gitlab.io" || hostname.endsWith(".gitlab.io")) {
+                // Lấy base path từ pathname (bỏ query string và fragment)
+                const path = window.location.pathname.split("/").filter(Boolean);
+                REPOSITORY_ROOT = path.length > 0 ? `/${path[0]}/` : "/";
+            } else {
+                for (const [key, value] of baseConfig) {
+                    if (hostname === key || hostname.endsWith(`.${key}`)) {
+                        REPOSITORY_ROOT = value;
+                        break;
+                    }
+                }
+            }
+
+            const VIDEOS_JSON_URL = `${REPOSITORY_ROOT}videos.json`;
+            const CACHE_NAME = "service-worker";
+
+            let videoUrls = [];
+            let currentIndex = 0;
+            let isReloading = false;
+            let isFirstLoad = true;
+            let observer = null;
+            let jsonVersion = "1.0.2"; // Giá trị mặc định
+
+            const CACHE_KEY = "videoUrls";
+            const CACHE_EXPIRY_KEY = "videoUrlsExpiry";
+            const CACHE_DURATION = 30 * 60 * 1000; // 30 phút
+            const FIRST_VISIT_KEY = "firstVisit";
+
+            window.addEventListener("load", () => {
+                const isFirstVisit = localStorage.getItem(FIRST_VISIT_KEY);
+                if (!isFirstVisit) {
+                    localStorage.setItem(FIRST_VISIT_KEY, "true");
+                    window.location.reload();
+                } else {
+                    loadVideos();
+                }
+            });
+
+            function isValidVideoUrl(url) {
+                return /\.(mp4|webm|ogg)$/i.test(url);
+            }
+
+            function isCacheValid() {
+                const expiry = localStorage.getItem(CACHE_EXPIRY_KEY);
+                return expiry && Date.now() < parseInt(expiry);
+            }
+
+            function convertToCdnUrl(githubUrl) {
+                let cdnUrl;
+                if (githubUrl.startsWith("https://cdn.jsdelivr.net/gh/")) {
+                    cdnUrl = githubUrl;
+                } else if (githubUrl.startsWith("https://github.com/") && githubUrl.includes("/blob/")) {
+                    cdnUrl = githubUrl.replace("https://github.com/", "https://cdn.jsdelivr.net/gh/").replace("/blob/", "@");
+                } else if (githubUrl.startsWith("https://raw.githubusercontent.com/")) {
+                    cdnUrl = githubUrl.replace("https://raw.githubusercontent.com/", "https://cdn.jsdelivr.net/gh/").replace("/main/", "@main/");
+                } else {
+                    console.warn("Link không thuộc định dạng blob, raw GitHub hoặc CDN:", githubUrl);
+                    cdnUrl = githubUrl;
+                }
+                return `${cdnUrl}?v=${jsonVersion}`; // Thêm query string
+            }
+
+            async function loadVideos(isReload = false) {
+                if (isReloading) return;
+                isReloading = true;
+                const container = document.getElementById("videoContainer");
+                let shouldUseCache = false;
+
+                if (!isReload && isCacheValid()) {
+                    try {
+                        const cachedVideos = localStorage.getItem(CACHE_KEY);
+                        if (cachedVideos) {
+                            const cachedData = JSON.parse(cachedVideos);
+                            const response = await fetch(`${VIDEOS_JSON_URL}?v=${Date.now()}`);
+                            if (response.ok) {
+                                const newData = await response.json();
+                                if (newData.version === cachedData.version) {
+                                    videoUrls = cachedData.videos;
+                                    jsonVersion = cachedData.version;
+                                    shouldUseCache = true;
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Lỗi parse cache:", e);
+                        localStorage.removeItem(CACHE_KEY);
+                        localStorage.removeItem(CACHE_EXPIRY_KEY);
+                    }
+                }
+
+                if (!shouldUseCache) {
+                    try {
+                        const response = await fetch(`${VIDEOS_JSON_URL}?v=${Date.now()}`);
+                        if (!response.ok) throw new Error("Lỗi tải videos.json");
+                        const data = await response.json();
+                        jsonVersion = data.version;
+                        videoUrls = data.videos.filter((v) => v.url && isValidVideoUrl(v.url)).map((v) => ({ ...v, url: convertToCdnUrl(v.url) }));
+                        localStorage.setItem(CACHE_KEY, JSON.stringify({ version: data.version, videos: videoUrls }));
+                        localStorage.setItem(CACHE_EXPIRY_KEY, Date.now() + CACHE_DURATION);
+                    } catch (e) {
+                        console.error("Lỗi tải video:", e);
+                        container.innerHTML = '<p class="error-message">Không có video</p>';
+                        isReloading = false;
+                        return;
+                    }
+                }
+
+                if (!videoUrls.length) {
+                    container.innerHTML = '<p class="error-message">Không có video</p>';
+                    isReloading = false;
+                    return;
+                }
+
+                if (!isReload) {
+                    currentIndex = Math.floor(Math.random() * videoUrls.length);
+                }
+
+                const currentVideo = videoUrls[currentIndex];
+                try {
+                    const res = await fetch(currentVideo.url, { method: "GET", mode: "cors", credentials: "omit" });
+                    if (!res.ok) throw new Error(`Video không tải được: ${currentVideo.url}`);
+                } catch (e) {
+                    console.warn(`Lỗi fetch video: ${currentVideo.url}`, e);
+                    const videoName = currentVideo.url.split("/").pop().replace(".mp4", "");
+                    const orderedVideos = getOrderedVideos();
+                    container.innerHTML = "";
+                    container.style.overflowY = "hidden";
+
+                    orderedVideos.forEach((video, index) => {
+                        const slide = document.createElement("div");
+                        slide.className = "video-slide";
+                        slide.innerHTML = `
+                            <div class="video-wrapper" data-index="${index}">
+                                <p class="error-message">Video ${videoName} đang gặp lỗi! <br><br> Xem các video khác nhé, sẽ fix sớm thôi</p>
+                                <div class="progress-bar"><div class="progress"></div></div>
+                                <div class="info">
+                                    <p class="title">${video.title || "........."}</p>
+                                    <p class="day-create">Created at: ${video.dayCreate || "........."}</p>
+                                </div>
+                            </div>
+                            <div class="controls">
+                                <button class="control-btn" onclick="togglePlay(this)">⏯️</button>
+                                <button class="control-btn" onclick="toggleMute(this)">🔊</button>
+                                <button class="control-btn" onclick="scrollToPrev()">⬆️</button>
+                                <button class="control-btn" onclick="scrollToNext()">⬇️</button>
+                            </div>
+                        `;
+                        container.appendChild(slide);
+                    });
+
+                    requestAnimationFrame(() => {
+                        if (document.querySelectorAll(".video-slide").length === 3) {
+                            setupVideos();
+                            container.style.overflowY = "scroll";
+                            container.scrollTop = window.innerHeight;
+                        } else {
+                            console.warn("Chưa render đủ slide, thử lại...");
+                            setTimeout(() => loadVideos(isReload), 100);
+                        }
+                        isReloading = false;
+                    });
+                    return;
+                }
+
+                const orderedVideos = getOrderedVideos();
+                container.innerHTML = "";
+                container.style.overflowY = "hidden";
+
+                orderedVideos.forEach((video, index) => {
+                    const slide = document.createElement("div");
+                    slide.className = "video-slide";
+                    slide.innerHTML = `
+                        <div class="video-wrapper" data-index="${index}">
+                            <video src="${video.url}" playsinline preload="${index === 1 ? "auto" : "none"}" autoplay></video>
+                            <div class="progress-bar"><div class="progress"></div></div>
+                            <div class="info">
+                                <p class="title">${video.title || "........."}</p>
+                                <p class="day-create">Created at: ${video.dayCreate || "........."}</p>
+                            </div>
+                        </div>
+                        <div class="controls">
+                            <button class="control-btn" onclick="togglePlay(this)">⏯️</button>
+                            <button class="control-btn" onclick="toggleMute(this)">🔊</button>
+                            <button class="control-btn" onclick="scrollToPrev()">⬆️</button>
+                            <button class="control-btn" onclick="scrollToNext()">⬇️</button>
+                        </div>
+                    `;
+                    container.appendChild(slide);
+                });
+
+                requestAnimationFrame(() => {
+                    if (document.querySelectorAll(".video-slide").length === 3) {
+                        setupVideos();
+                        container.style.overflowY = "scroll";
+                        container.scrollTop = window.innerHeight;
+                    } else {
+                        console.warn("Chưa render đủ slide, thử lại...");
+                        setTimeout(() => loadVideos(isReload), 100);
+                    }
+                    isReloading = false;
+                });
+            }
+
+            async function clearCacheAndReload() {
+                if ("serviceWorker" in navigator) {
+                    const registration = await navigator.serviceWorker.getRegistration(`${REPOSITORY_ROOT}sw.js`);
+                    if (registration) {
+                        await registration.unregister();
+                        await caches.delete(CACHE_NAME);
+                    }
+                }
+                localStorage.removeItem(CACHE_KEY);
+                localStorage.removeItem(CACHE_EXPIRY_KEY);
+                localStorage.removeItem(FIRST_VISIT_KEY);
+                window.location.reload();
+            }
+
+            function getOrderedVideos() {
+                const prevIndex = (currentIndex - 1 + videoUrls.length) % videoUrls.length;
+                const nextIndex = (currentIndex + 1) % videoUrls.length;
+                return [videoUrls[prevIndex], videoUrls[currentIndex], videoUrls[nextIndex]];
+            }
+
+            function setupVideos() {
+                if (observer) observer.disconnect();
+                const slides = document.querySelectorAll(".video-slide");
+
+                observer = new IntersectionObserver(
+                    (entries) => {
+                        entries.forEach((entry) => {
+                            const slide = entry.target;
+                            const index = parseInt(slide.querySelector(".video-wrapper").dataset.index);
+                            if (entry.isIntersecting && !isReloading) {
+                                if (index === 0) {
+                                    currentIndex = (currentIndex - 1 + videoUrls.length) % videoUrls.length;
+                                    loadVideos(true);
+                                } else if (index === 2) {
+                                    currentIndex = (currentIndex + 1) % videoUrls.length;
+                                    loadVideos(true);
+                                } else if (index === 1) {
+                                    const video = slide.querySelector("video");
+                                    if (video && !isFirstLoad) {
+                                        video.play().catch(() => console.warn("Lỗi phát video:", video.src));
+                                    }
+                                    const controls = slide.querySelector(".controls");
+                                    if (controls) controls.classList.remove("hidden");
+                                }
+                            } else {
+                                const video = slide.querySelector("video");
+                                if (video) {
+                                    video.pause();
+                                    video.currentTime = 0;
+                                }
+                            }
+                        });
+                    },
+                    { threshold: 0.7, rootMargin: "50px" }
+                );
+
+                slides.forEach((slide) => {
+                    const video = slide.querySelector("video");
+                    observer.observe(slide);
+
+                    if (video) {
+                        video.addEventListener("click", () => {
+                            if (isFirstLoad) isFirstLoad = false;
+                            video.paused ? video.play() : video.pause();
+                            const btn = slide.querySelector(".control-btn");
+                            if (btn) btn.textContent = video.paused ? "▶️" : "⏸";
+                        });
+
+                        video.addEventListener("timeupdate", () => {
+                            const progress = slide.querySelector(".progress");
+                            if (progress) {
+                                const percent = (video.currentTime / video.duration) * 100;
+                                progress.style.width = `${percent}%`;
+                            }
+                        });
+
+                        const progressBar = slide.querySelector(".progress-bar");
+                        if (progressBar) {
+                            progressBar.addEventListener("click", (e) => {
+                                const rect = progressBar.getBoundingClientRect();
+                                const pos = (e.clientX - rect.left) / rect.width;
+                                video.currentTime = pos * video.duration;
+                            });
+                        }
+
+                        video.addEventListener("ended", () => {
+                            video.currentTime = 0;
+                            video.play();
+                        });
+
+                        video.addEventListener("error", () => {
+                            console.warn("Lỗi video:", video.src);
+                            const videoName = video.src.split("/").pop().replace(".mp4", "");
+                            video.parentElement.innerHTML = `
+                                <p class="error-message">Video ${videoName} đang gặp lỗi! <br><br> Xem các video khác nhé, sẽ fix sớm thôi</p>
+                                <div class="progress-bar"><div class="progress"></div></div>
+                                <div class="info">
+                                    <p class="title">${videoUrls[currentIndex].title || "........."}</p>
+                                    <p class="day-create">Created at: ${videoUrls[currentIndex].dayCreate || "........."}</p>
+                                </div>
+                            `;
+                        });
+                    }
+                });
+
+                document.addEventListener("keydown", (e) => {
+                    if (e.key === "ArrowUp") scrollToPrev();
+                    if (e.key === "ArrowDown") scrollToNext();
+                });
+            }
+
+            function togglePlay(btn) {
+                const video = btn.closest(".video-slide").querySelector("video");
+                if (video) {
+                    if (isFirstLoad) isFirstLoad = false;
+                    video.paused ? video.play() : video.pause();
+                    btn.textContent = video.paused ? "▶️" : "⏸";
+                }
+            }
+
+            function toggleMute(btn) {
+                const video = btn.closest(".video-slide").querySelector("video");
+                if (video) {
+                    video.muted = !video.muted;
+                    btn.textContent = video.muted ? "🔇" : "🔊";
+                }
+            }
+
+            function scrollToNext() {
+                const container = document.getElementById("videoContainer");
+                const nextSlide = container.scrollTop + window.innerHeight;
+                container.scrollTo({ top: nextSlide, behavior: "smooth" });
+            }
+
+            function scrollToPrev() {
+                const container = document.getElementById("videoContainer");
+                const prevSlide = container.scrollTop - window.innerHeight;
+                container.scrollTo({ top: prevSlide, behavior: "smooth" });
+            }
+
+            if ("serviceWorker" in navigator) {
+                window.addEventListener("load", () => {
+                    navigator.serviceWorker.register(`${REPOSITORY_ROOT}sw.js`).then(
+                        (registration) => {
+                            console.log("Service Worker đăng ký thành công:", registration.scope);
+                        },
+                        (error) => {
+                            console.error("Lỗi đăng ký Service Worker:", error);
+                        }
+                    );
+                });
+            }
+        </script>
+    </body>
+</html>
